@@ -1,0 +1,1053 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>电站价格整理器</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1f2a33;
+      --muted: #687581;
+      --line: #d9e0e6;
+      --panel: #ffffff;
+      --wash: #f3f6f8;
+      --accent: #0f766e;
+      --accent-2: #c2410c;
+      --danger: #b91c1c;
+      --ok: #047857;
+      --shadow: 0 18px 45px rgba(31, 42, 51, .10);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Microsoft YaHei", "Noto Sans SC", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(15, 118, 110, .16), transparent 26%),
+        linear-gradient(90deg, rgba(31, 42, 51, .055) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(31, 42, 51, .045) 1px, transparent 1px),
+        #edf2f4;
+      background-size: 28px 28px;
+    }
+
+    .shell {
+      width: min(1320px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 36px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 18px;
+      margin-bottom: 20px;
+      padding: 18px;
+      border: 1px solid rgba(217, 224, 230, .9);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .76);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(24px, 3.4vw, 42px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .sub {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .input-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 14px 16px;
+      border-top: 1px solid var(--line);
+      background: #fbfcfd;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      height: 42px;
+      padding: 0 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 15px;
+      box-shadow: 0 5px 16px rgba(31, 42, 51, .06);
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 9px 20px rgba(31, 42, 51, .10);
+    }
+
+    button.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: white;
+      min-width: 118px;
+    }
+
+    button.warn {
+      border-color: #e5d2b5;
+      color: #7c3f08;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(320px, 1fr) minmax(420px, 1.28fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfd;
+      min-height: 55px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.4;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      align-self: center;
+    }
+
+    textarea {
+      display: block;
+      width: 100%;
+      min-height: 550px;
+      resize: vertical;
+      border: 0;
+      outline: 0;
+      padding: 16px;
+      font: 15px/1.65 Consolas, "Microsoft YaHei", monospace;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    .result-wrap {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .rules {
+      border: 1px solid #cfe0dc;
+      border-radius: 6px;
+      background: linear-gradient(180deg, #f4fbf9, #ffffff);
+      overflow: hidden;
+    }
+
+    .rules summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      padding: 12px 14px;
+      font-weight: 800;
+      color: #0f514b;
+    }
+
+    .rule-state::after {
+      content: "已折叠，点击展开";
+      color: #687581;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .rules[open] .rule-state::after {
+      content: "已展开，点击折叠";
+    }
+
+    .rules-body {
+      padding: 0 14px 14px;
+      color: #394650;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .rule-group {
+      padding: 10px 0 12px;
+      border-top: 1px solid #e1ece8;
+    }
+
+    .rule-group:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .rule-title {
+      margin: 0 0 6px;
+      color: #0f514b;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .rules-body ul {
+      margin: 6px 0 0;
+      padding-left: 20px;
+    }
+
+    .rules-body li + li {
+      margin-top: 5px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .field {
+      min-height: 88px;
+      padding: 10px;
+      background: linear-gradient(180deg, #f8fbfb, var(--wash));
+      border: 1px solid #e4eaef;
+      border-radius: 6px;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    .value {
+      margin-top: 8px;
+      font-family: Consolas, monospace;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--accent);
+      word-break: break-all;
+    }
+
+    .empty .value { color: var(--danger); }
+
+    .copy-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .review {
+      border: 1px solid #d7e5e1;
+      border-radius: 6px;
+      background: #fbfdfc;
+      overflow: hidden;
+    }
+
+    .review-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 11px 12px;
+      border-bottom: 1px solid #e2ece8;
+      background: #f2f8f6;
+      color: #0f514b;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .review-body {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+    }
+
+    .review-item {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid #e6eeee;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .review-name {
+      color: #0f514b;
+      font-weight: 900;
+    }
+
+    .review-price {
+      font-family: Consolas, monospace;
+      color: #24423f;
+      font-weight: 800;
+    }
+
+    input {
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 0 12px;
+      font: 14px Consolas, monospace;
+      color: var(--ink);
+      background: #fbfcfd;
+    }
+
+    .messages {
+      display: grid;
+      gap: 8px;
+    }
+
+    .msg {
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.45;
+      background: #eef8f5;
+      border: 1px solid #bee3dc;
+      color: #0f514b;
+    }
+
+    .msg.warn {
+      position: relative;
+      padding: 14px 14px 14px 42px;
+      background: #fff1f2;
+      border: 2px solid #f43f5e;
+      color: #9f1239;
+      font-size: 15px;
+      font-weight: 800;
+      box-shadow: 0 12px 26px rgba(244, 63, 94, .16);
+    }
+
+    .msg.warn::before {
+      content: "!";
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      width: 18px;
+      height: 18px;
+      transform: translateY(-50%);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #e11d48;
+      color: white;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .detail {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 9px 10px;
+      border-bottom: 1px solid #e7edf1;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #52616c;
+      background: #f8fafb;
+      font-size: 12px;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    .mono { font-family: Consolas, monospace; }
+    .ok { color: var(--ok); font-weight: 700; }
+    .bad { color: var(--danger); font-weight: 700; }
+
+    @media (max-width: 980px) {
+      header { align-items: stretch; flex-direction: column; }
+      .toolbar { justify-content: flex-start; }
+      main { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      textarea { min-height: 360px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <h1>电站价格整理器</h1>
+        <div class="sub">粘贴 PixPin 识别文字，自动提取晚谷、平、中谷的会员价和非会员价。</div>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <div class="section-head">
+          <h2>PixPin 原始文字</h2>
+          <span class="hint">直接整段粘贴</span>
+        </div>
+        <textarea id="raw" spellcheck="false" placeholder="把 PixPin 识别出来的文字粘贴到这里..."></textarea>
+        <div class="input-actions">
+          <button id="sampleA">例1</button>
+          <button id="sampleB">例2</button>
+          <button id="sampleC">例3</button>
+          <button class="warn" id="clearBtn">清空</button>
+          <button class="primary" id="parseBtn">整理价格</button>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>整理结果</h2>
+          <span class="hint">复制顺序：晚谷非会员、晚谷会员、中谷非会员、中谷会员、平非会员、平会员</span>
+        </div>
+        <div class="result-wrap">
+          <details class="rules">
+            <summary><span>当前取价规则</span><span class="rule-state"></span></summary>
+            <div class="rules-body">
+              <div class="rule-group">
+                <p class="rule-title">1. 目标登记时段</p>
+                <ul>
+                  <li>晚谷：00:00-06:00。</li>
+                  <li>平：06:00-12:00。</li>
+                  <li>中谷：12:00-14:00。</li>
+                </ul>
+              </div>
+              <div class="rule-group">
+                <p class="rule-title">2. 会员价与非会员价</p>
+                <ul>
+                  <li>同一目标时段只识别到一个有效总价时，会员价和非会员价登记为同价。</li>
+                  <li>同一目标时段识别到两个有效总价时，较低价登记为会员价，较高价登记为非会员价。</li>
+                  <li>同一目标时段识别到两个以上有效总价时，只取最低的两个价格，最低价为会员价，第二低价为非会员价。</li>
+                  <li>不同平台的会员名称不作为最终判断依据，最终以价格高低为准。</li>
+                </ul>
+              </div>
+              <div class="rule-group">
+                <p class="rule-title">3. 有效总价识别</p>
+                <ul>
+                  <li>页面直接展示总价时，以展示出的充电单价、当前价、电站价、会员价、VIP价等总价候选为准。</li>
+                  <li>若页面展示“电费 + 服务费 = 收费金额/当前价”，只取相加后的收费金额或当前价。</li>
+                  <li>若页面展示“电费 + 服务费 - 优惠 = 当前价”，只取扣减优惠后的当前价。</li>
+                  <li>电费、服务费、优惠金额、负数优惠金额、立减金额、补贴金额不直接参与会员/非会员比价。</li>
+                </ul>
+              </div>
+              <div class="rule-group">
+                <p class="rule-title">4. 实际时段匹配</p>
+                <ul>
+                  <li>实际时段与目标时段重叠时，即纳入该目标时段比价，例如 00:00-05:59 可纳入晚谷。</li>
+                  <li>实际时段被拆分时，例如 00:00-02:00、02:00-06:00，分别纳入晚谷候选，并取其中最低会员价所在价格组。</li>
+                  <li>实际时段跨越多个目标时段时，例如 02:30-24:00，同时纳入被覆盖的晚谷、平、中谷等目标时段。</li>
+                  <li>若两个拆分时段共同覆盖目标时段且价格一致，登记结果应保持一致。</li>
+                </ul>
+              </div>
+              <div class="rule-group">
+                <p class="rule-title">5. 输出与复核</p>
+                <ul>
+                  <li>复制顺序固定为：晚谷非会员、晚谷会员、中谷非会员、中谷会员、平非会员、平会员。</li>
+                  <li>若目标时段没有识别到有效价格，页面会显示醒目的异常提示，需要人工复核原始截图或 PixPin 文本。</li>
+                </ul>
+              </div>
+            </div>
+          </details>
+          <div class="grid" id="fields"></div>
+          <div class="review">
+            <div class="review-head">
+              <span>价格组复核</span>
+              <span>确认价格组与时段是否对应</span>
+            </div>
+            <div class="review-body" id="reviewBody"></div>
+          </div>
+          <div class="copy-row">
+            <input id="copyLine" readonly value="">
+            <button id="copyBtn">复制一行</button>
+          </div>
+          <div class="messages" id="messages"></div>
+          <div class="detail">
+            <table>
+              <thead>
+                <tr>
+                  <th>目标</th>
+                  <th>命中时段</th>
+                  <th>有效总价</th>
+                  <th>取值说明</th>
+                </tr>
+              </thead>
+              <tbody id="detailBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const targets = [
+      { key: "late", name: "晚谷", start: "00:00", end: "06:00" },
+      { key: "flat", name: "平", start: "06:00", end: "12:00" },
+      { key: "mid", name: "中谷", start: "12:00", end: "14:00" }
+    ];
+
+    const outputFields = [
+      ["late_non", "晚谷非会员价"],
+      ["late_mem", "晚谷会员价"],
+      ["mid_non", "中谷非会员价"],
+      ["mid_mem", "中谷会员价"],
+      ["flat_non", "平非会员价"],
+      ["flat_mem", "平会员价"]
+    ];
+
+    const samples = {
+      sampleA: `黑钻会员价
+谷
+00:00-06:00
+0.5470
+挂牌价
+0.6400
+黑钻会员价
+平
+06:00-12:00
+0.8450
+挂牌价
+0.9200
+黑钻会员价
+深谷
+12:00-14:00
+0.6100
+挂牌价
+0.7300`,
+      sampleB: `会员专享
+谷
+00:00 - 06:00
+0.5924
+优惠价
+0.6540
+电站价
+0.6900
+会员专享
+平
+06:00 - 12:00
+0.8495
+优惠价
+0.8940
+电站价
+0.9200
+会员专享
+谷
+12:00 - 14:00
+0.5924
+优惠价
+0.6540
+电站价
+0.6900`,
+      sampleC: `会员专享
+00:00 - 06:00
+0.5470
+0.3300
+0.2170
+电站价
+0.6400
+0.3300
+0.3100
+会员专享
+06:00 - 12:00
+0.8450
+0.6700
+0.1750
+电站价
+0.9200
+0.6700
+0.2500
+会员专享
+平
+12:00 - 14:00
+0.6500
+0.3300
+0.3200
+电站价
+0.7300
+0.3300
+0.4000`
+    };
+
+    const rawEl = document.getElementById("raw");
+    const fieldsEl = document.getElementById("fields");
+    const copyLineEl = document.getElementById("copyLine");
+    const messagesEl = document.getElementById("messages");
+    const detailBodyEl = document.getElementById("detailBody");
+    const reviewBodyEl = document.getElementById("reviewBody");
+
+    function toMin(text) {
+      const [h, m] = text.split(":").map(Number);
+      return h * 60 + m;
+    }
+
+    function normTime(text) {
+      const match = text.match(/(\d{1,2}):(\d{2})\s*[-－~～]\s*(\d{1,2}):(\d{2})/);
+      if (!match) return null;
+      const s = `${match[1].padStart(2, "0")}:${match[2]}`;
+      const e = `${match[3].padStart(2, "0")}:${match[4]}`;
+      return { label: `${s}-${e}`, start: toMin(s), end: toMin(e) };
+    }
+
+    function getPositiveNumbers(line, minValue = 0.25) {
+      if (normTime(line)) return [];
+      return [...line.matchAll(/(?<![-－])\b\d+(?:\.\d{1,4})\b/g)]
+        .map(match => Number(match[0]))
+        .filter(value => value >= minValue && value <= 3);
+    }
+
+    function isNumericOnlyLine(line) {
+      const normalized = line.replace(/[元度\s]/g, "");
+      return /^\d+(?:\.\d{1,4})$/.test(normalized);
+    }
+
+    function isIgnoreLabel(line) {
+      return /电费|服务费|优惠金额|最高优惠|立减|已减|补贴|省/.test(line);
+    }
+
+    function isPriceLabel(line) {
+      if (isIgnoreLabel(line) || normTime(line)) return false;
+      return /会员|VIP|黑钻|优惠价|挂牌价|电站价|快电价|闪联价|原价|折扣价|专享|活动价|充电单价/.test(line);
+    }
+
+    function hasPriceLabelNearBefore(lines, timeIndex) {
+      const start = Math.max(0, timeIndex - 4);
+      let labelCount = 0;
+      for (let i = timeIndex - 1; i >= start; i--) {
+        if (normTime(lines[i])) return false;
+        if (isPriceLabel(lines[i])) {
+          labelCount++;
+          continue;
+        }
+        if (getPositiveNumbers(lines[i]).length) return false;
+      }
+      return labelCount === 1;
+    }
+
+    function collectPreTimePrice(lines, timeIndex, previousTimeIndex) {
+      const numbers = [];
+      let i = timeIndex - 1;
+      while (i > previousTimeIndex && isNumericOnlyLine(lines[i])) {
+        numbers.unshift(...getPositiveNumbers(lines[i]));
+        i--;
+      }
+      if (numbers.length && i > previousTimeIndex && isPriceLabel(lines[i])) {
+        return [numbers[0]];
+      }
+      return [];
+    }
+
+    function collectFirstPriceAfterLabel(lines, labelIndex, endIndex) {
+      for (let i = labelIndex + 1; i < endIndex; i++) {
+        if (normTime(lines[i]) || isPriceLabel(lines[i]) || isIgnoreLabel(lines[i])) break;
+        const nums = getPositiveNumbers(lines[i]);
+        if (nums.length) return [nums[0]];
+      }
+      return [];
+    }
+
+    function hasNextPeriodBoundary(lines, timeIndex, labelIndex) {
+      for (let i = timeIndex + 1; i < labelIndex; i++) {
+        if (/全天最低/.test(lines[i])) return true;
+      }
+      return false;
+    }
+
+    function isImmediateBeforeNextTime(lines, labelIndex, nextTimeIndex) {
+      if (nextTimeIndex >= lines.length) return false;
+      let sawNumber = false;
+      for (let i = labelIndex + 1; i < nextTimeIndex; i++) {
+        if (isNumericOnlyLine(lines[i])) {
+          sawNumber = true;
+          continue;
+        }
+        return false;
+      }
+      return sawNumber;
+    }
+
+    function nearlyEqual(a, b) {
+      return Math.abs(a - b) < 0.0002;
+    }
+
+    function formulaTotal(window) {
+      if (window.length === 3) {
+        if (nearlyEqual(window[0] + window[1], window[2])) return window[2];
+        if (nearlyEqual(window[1] + window[2], window[0])) return window[0];
+      }
+
+      if (window.length === 4) {
+        if (nearlyEqual(window[0] + window[1] - window[2], window[3])) return window[3];
+        if (nearlyEqual(window[1] + window[2] - window[3], window[0])) return window[0];
+      }
+      return null;
+    }
+
+    function normalizePriceCandidates(prices) {
+      const normalized = [];
+      let i = 0;
+
+      while (i < prices.length) {
+        if (i + 3 < prices.length) {
+          const total = formulaTotal(prices.slice(i, i + 4));
+          if (total !== null) {
+            normalized.push(total);
+            i += 4;
+            continue;
+          }
+        }
+
+        if (i + 2 < prices.length) {
+          const total = formulaTotal(prices.slice(i, i + 3));
+          if (total !== null) {
+            normalized.push(total);
+            i += 3;
+            continue;
+          }
+        }
+
+        normalized.push(prices[i]);
+        i++;
+      }
+
+      return normalized.filter(price => price >= 0.25);
+    }
+
+    function collectInitialPricesAfterTime(lines, timeIndex, endIndex) {
+      const prices = [];
+      const hasLeadingPriceLabel = hasPriceLabelNearBefore(lines, timeIndex);
+      let nextLabel = "";
+
+      for (let i = timeIndex + 1; i < endIndex; i++) {
+        if (normTime(lines[i])) break;
+        if (isPriceLabel(lines[i]) || isIgnoreLabel(lines[i])) {
+          nextLabel = lines[i];
+          break;
+        }
+        const nums = getPositiveNumbers(lines[i], 0);
+        if (!nums.length) continue;
+        prices.push(...nums);
+      }
+
+      if (!prices.length) return [];
+      if (hasLeadingPriceLabel || (nextLabel && !isIgnoreLabel(nextLabel))) return [prices[0]];
+      return normalizePriceCandidates(prices);
+    }
+
+    function previousTimeForGroup(timeItems, startIndex) {
+      let found = null;
+      for (const item of timeItems) {
+        if (item.index < startIndex) found = item;
+        else break;
+      }
+      return found;
+    }
+
+    function nextTimeForGroup(timeItems, endIndex) {
+      return timeItems.find(item => item.index > endIndex) || null;
+    }
+
+    function collectGroupNumbers(lines, startIndex) {
+      const prices = [];
+      let endIndex = startIndex;
+
+      for (let i = startIndex; i < lines.length; i++) {
+        if (normTime(lines[i]) || (i !== startIndex && (isPriceLabel(lines[i]) || isIgnoreLabel(lines[i])))) break;
+        const nums = getPositiveNumbers(lines[i], 0);
+        if (nums.length) prices.push(...nums);
+        endIndex = i;
+      }
+
+      return { endIndex, prices: normalizePriceCandidates(prices) };
+    }
+
+    function parsePriceGroups(lines) {
+      const groups = [];
+      let i = 0;
+
+      while (i < lines.length) {
+        if (normTime(lines[i])) {
+          i++;
+          continue;
+        }
+
+        if (isIgnoreLabel(lines[i])) {
+          i++;
+          while (i < lines.length && !normTime(lines[i]) && !isPriceLabel(lines[i])) i++;
+          continue;
+        }
+
+        if (isPriceLabel(lines[i])) {
+          const collected = collectGroupNumbers(lines, i + 1);
+          if (collected.prices.length) {
+            groups.push({
+              label: lines[i],
+              start: i,
+              end: collected.endIndex,
+              prices: collected.prices
+            });
+          }
+          i = Math.max(collected.endIndex + 1, i + 1);
+          continue;
+        }
+
+        if (getPositiveNumbers(lines[i], 0).length) {
+          const collected = collectGroupNumbers(lines, i);
+          if (collected.prices.length) {
+            groups.push({
+              label: "未标注价格组",
+              start: i,
+              end: collected.endIndex,
+              prices: collected.prices
+            });
+          }
+          i = collected.endIndex + 1;
+          continue;
+        }
+
+        i++;
+      }
+
+      return groups;
+    }
+
+    function assignGroupsToSections(timeItems, groups) {
+      const byTimeIndex = new Map(timeItems.map(item => [item.index, []]));
+
+      for (const group of groups) {
+        const prev = previousTimeForGroup(timeItems, group.start);
+        const next = nextTimeForGroup(timeItems, group.end);
+        let owner = prev || next;
+
+        if (prev && next) {
+          const prevStartDistance = group.start - prev.index;
+          const nextDistance = next.index - group.end;
+          owner = prevStartDistance <= 2 ? prev : (nextDistance < prevStartDistance ? next : prev);
+        }
+
+        if (owner) byTimeIndex.get(owner.index).push(group);
+      }
+
+      return byTimeIndex;
+    }
+
+    function parseSections(text) {
+      const lines = text
+        .replace(/\r/g, "\n")
+        .split("\n")
+        .map(line => line.trim())
+        .filter(Boolean);
+
+      const timeItems = [];
+      lines.forEach((line, index) => {
+        const time = normTime(line);
+        if (time) timeItems.push({ index, ...time });
+      });
+
+      const groups = parsePriceGroups(lines);
+      const groupsByTime = assignGroupsToSections(timeItems, groups);
+
+      return timeItems.map((timeItem, pos) => {
+        const nextTimeIndex = pos < timeItems.length - 1 ? timeItems[pos + 1].index : lines.length;
+        const sectionGroups = groupsByTime.get(timeItem.index) || [];
+        const section = {
+          ...timeItem,
+          prices: sectionGroups.flatMap(group => group.prices),
+          groups: sectionGroups,
+          raw: lines.slice(timeItem.index, nextTimeIndex)
+        };
+
+        return section;
+      });
+    }
+
+    function uniqueSorted(prices) {
+      return [...new Set(prices.map(price => price.toFixed(4)))]
+        .map(Number)
+        .sort((a, b) => a - b);
+    }
+
+    function chooseForTarget(sections, target) {
+      const start = toMin(target.start);
+      const end = toMin(target.end);
+      const matched = sections.filter(section => section.end > start && section.start < end);
+      const candidatesBySection = matched.map(section => ({
+        section,
+        prices: uniqueSorted(section.prices)
+      })).filter(item => item.prices.length);
+
+      if (!candidatesBySection.length) {
+        return { member: "", nonMember: "", matched, all: [], note: "未识别到该目标时段内的有效总价" };
+      }
+
+      let best = candidatesBySection[0];
+      for (const item of candidatesBySection) {
+        if (item.prices[0] < best.prices[0]) best = item;
+      }
+
+      const member = best.prices[0];
+      const nonMember = best.prices.length === 1 ? best.prices[0] : best.prices[1];
+      const note = best.prices.length === 1
+        ? "只有一个有效总价，会员与非会员同价"
+        : "取最低价为会员价，第二低价为非会员价";
+
+      return {
+        member,
+        nonMember,
+        matched,
+        all: candidatesBySection,
+        best,
+        note
+      };
+    }
+
+    function render(result) {
+      fieldsEl.innerHTML = "";
+      for (const [key, label] of outputFields) {
+        const value = result.values[key];
+        const div = document.createElement("div");
+        div.className = `field ${value ? "" : "empty"}`;
+        div.innerHTML = `<div class="label">${label}</div><div class="value">${value || "待复核"}</div>`;
+        fieldsEl.appendChild(div);
+      }
+
+      copyLineEl.value = outputFields.map(([key]) => result.values[key]).join("\t");
+
+      reviewBodyEl.innerHTML = "";
+      for (const item of result.details) {
+        const div = document.createElement("div");
+        div.className = "review-item";
+        const groups = item.matched.flatMap(section =>
+          (section.groups || []).map(group => {
+            const prices = group.prices.map(v => Number(v).toFixed(4)).join(" / ");
+            return `${section.label}｜${group.label}：${prices}`;
+          })
+        );
+        div.innerHTML = `
+          <div class="review-name">${item.name.split(" ")[0]}</div>
+          <div>${groups.length ? groups.map(text => `<div class="review-price">${text}</div>`).join("") : "<span class=\"bad\">未识别到价格组</span>"}</div>
+        `;
+        reviewBodyEl.appendChild(div);
+      }
+
+      messagesEl.innerHTML = "";
+      for (const message of result.messages) {
+        const div = document.createElement("div");
+        div.className = `msg ${message.type === "warn" ? "warn" : ""}`;
+        div.textContent = message.text;
+        messagesEl.appendChild(div);
+      }
+
+      detailBodyEl.innerHTML = "";
+      for (const item of result.details) {
+        const tr = document.createElement("tr");
+        const periods = item.matched.length
+          ? item.matched.map(section => section.label).join("，")
+          : "无";
+        const prices = item.all.length
+          ? item.all.map(row => `${row.section.label}: ${row.prices.map(v => v.toFixed(4)).join(" / ")}`).join("；")
+          : "无";
+        const picked = item.member
+          ? `<span class="ok">会员 ${Number(item.member).toFixed(4)}，非会员 ${Number(item.nonMember).toFixed(4)}</span>`
+          : `<span class="bad">${item.note}</span>`;
+        tr.innerHTML = `<td>${item.name}</td><td class="mono">${periods}</td><td class="mono">${prices}</td><td>${picked}<br>${item.note}</td>`;
+        detailBodyEl.appendChild(tr);
+      }
+    }
+
+    function parseAndRender() {
+      const sections = parseSections(rawEl.value);
+      const values = {};
+      const details = [];
+      const messages = [];
+
+      for (const target of targets) {
+        const picked = chooseForTarget(sections, target);
+        details.push({ name: `${target.name} ${target.start}-${target.end}`, ...picked });
+        values[`${target.key}_mem`] = picked.member ? Number(picked.member).toFixed(4) : "";
+        values[`${target.key}_non`] = picked.nonMember ? Number(picked.nonMember).toFixed(4) : "";
+        if (!picked.member) {
+          messages.push({ type: "warn", text: `${target.name}：未取到价格，需要人工复核。` });
+        }
+        if (picked.member && picked.nonMember && Number(picked.member).toFixed(4) === Number(picked.nonMember).toFixed(4)) {
+          messages.push({ type: "warn", text: `${target.name}：仅识别到一个有效总价，已按会员/非会员同价处理，请在“价格组复核”中确认。` });
+        }
+        if (picked.matched.length > 1) {
+          messages.push({ type: "ok", text: `${target.name}：命中多个拆分时段，已按最低会员价所在时段取值。` });
+        }
+      }
+
+      if (!sections.length) {
+        messages.push({ type: "warn", text: "没有识别到时间段，请检查 PixPin 文本里是否包含 00:00 - 06:00 这类时间格式。" });
+      } else {
+        messages.unshift({ type: "ok", text: `共识别到 ${sections.length} 个价格时段；负数优惠金额、电费、服务费已自动忽略。` });
+      }
+
+      render({ values, details, messages });
+    }
+
+    document.getElementById("parseBtn").addEventListener("click", parseAndRender);
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      rawEl.value = "";
+      parseAndRender();
+      rawEl.focus();
+    });
+    document.getElementById("copyBtn").addEventListener("click", async () => {
+      await navigator.clipboard.writeText(copyLineEl.value);
+    });
+
+    for (const id of Object.keys(samples)) {
+      document.getElementById(id).addEventListener("click", () => {
+        rawEl.value = samples[id];
+        parseAndRender();
+      });
+    }
+
+    rawEl.addEventListener("input", parseAndRender);
+    parseAndRender();
+  </script>
+</body>
+</html>
