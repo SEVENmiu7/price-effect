@@ -12,9 +12,9 @@
       --muted: #687581;
       --line: #d9e0e6;
       --panel: #ffffff;
-      --wash: #f3f6f8;
-      --accent: #0f766e;
-      --accent-2: #c2410c;
+      --wash: #fdf1e8;
+      --accent: #d97706;
+      --accent-2: #f97316;
       --danger: #b91c1c;
       --ok: #047857;
       --shadow: 0 18px 45px rgba(31, 42, 51, .10);
@@ -27,7 +27,7 @@
       font-family: "Microsoft YaHei", "Noto Sans SC", sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at 12% 8%, rgba(15, 118, 110, .16), transparent 26%),
+        radial-gradient(circle at 12% 8%, rgba(234, 88, 12, .16), transparent 26%),
         linear-gradient(90deg, rgba(31, 42, 51, .055) 1px, transparent 1px),
         linear-gradient(180deg, rgba(31, 42, 51, .045) 1px, transparent 1px),
         #edf2f4;
@@ -468,7 +468,7 @@
               <div class="rule-group">
                 <p class="rule-title">3. 有效总价识别</p>
                 <ul>
-                  <li>页面直接展示总价时，以展示出的充电单价、当前价、电站价、会员价、VIP价等总价候选为准。</li>
+                  <li>页面直接展示总价时，以展示出的充电单价、当前价、电站价、会员价、VIP价、华自价、闪联价等总价候选为准。</li>
                   <li>若页面展示“电费 + 服务费 = 收费金额/当前价”，只取相加后的收费金额或当前价。</li>
                   <li>若页面展示“电费 + 服务费 - 优惠 = 当前价”，只取扣减优惠后的当前价。</li>
                   <li>电费、服务费、优惠金额、负数优惠金额、立减金额、补贴金额不直接参与会员/非会员比价。</li>
@@ -481,6 +481,7 @@
                   <li>实际时段被拆分时，例如 00:00-02:00、02:00-06:00，分别纳入晚谷候选，并取其中最低会员价所在价格组。</li>
                   <li>实际时段跨越多个目标时段时，例如 02:30-24:00，同时纳入被覆盖的晚谷、平、中谷等目标时段。</li>
                   <li>若两个拆分时段共同覆盖目标时段且价格一致，登记结果应保持一致。</li>
+                  <li>若价格组出现在对应时段前后混排，优先按一轮价格标签模板补齐该时段，例如“华自价 + VIP价”或“闪联价 + VIP价”。</li>
                 </ul>
               </div>
               <div class="rule-group">
@@ -650,7 +651,7 @@
 
     function isPriceLabel(line) {
       if (isIgnoreLabel(line) || normTime(line)) return false;
-      return /会员|VIP|黑钻|优惠价|挂牌价|电站价|快电价|闪联价|原价|折扣价|专享|活动价|充电单价/.test(line);
+      return /会员|VIP|黑钻|优惠价|挂牌价|电站价|快电价|闪联价|华自价|YKC价|原价|折扣价|专享|活动价|充电单价/.test(line);
     }
 
     function hasPriceLabelNearBefore(lines, timeIndex) {
@@ -829,6 +830,29 @@
               end: collected.endIndex,
               prices: collected.prices
             });
+          } else {
+            let timeIndex = -1;
+            for (let j = i + 1; j < lines.length; j++) {
+              if (isPriceLabel(lines[j])) break;
+              if (normTime(lines[j])) {
+                timeIndex = j;
+                break;
+              }
+            }
+
+            if (timeIndex !== -1) {
+              const afterTime = collectGroupNumbers(lines, timeIndex + 1);
+              if (afterTime.prices.length) {
+                groups.push({
+                  label: lines[i],
+                  start: timeIndex + 1,
+                  end: afterTime.endIndex,
+                  prices: afterTime.prices
+                });
+                i = Math.max(afterTime.endIndex + 1, i + 1);
+                continue;
+              }
+            }
           }
           i = Math.max(collected.endIndex + 1, i + 1);
           continue;
@@ -854,7 +878,135 @@
       return groups;
     }
 
+    function isUnlabeledGroup(group) {
+      return !group.label || group.label.includes("未标注");
+    }
+
+    function normalizeLabel(label) {
+      return String(label || "").replace(/\s+/g, "").trim();
+    }
+
+    const UNLABELED_TEMPLATE = "__UNLABELED__";
+
+    function hasLeadingUnlabeledGroups(timeItems, groups) {
+      return timeItems.some(timeItem =>
+        groups.some(group =>
+          isUnlabeledGroup(group) &&
+          group.start > timeItem.index &&
+          group.start - timeItem.index <= 3
+        )
+      );
+    }
+
+    function inferLabelTemplate(groups, timeItems) {
+      const labels = groups
+        .filter(group => !isUnlabeledGroup(group))
+        .map(group => normalizeLabel(group.label));
+
+      const hasLeadingUnlabeled = hasLeadingUnlabeledGroups(timeItems, groups);
+      const uniqueLabels = [...new Set(labels)];
+      if (hasLeadingUnlabeled && uniqueLabels.length === 1 && labels.length >= 2) {
+        return [UNLABELED_TEMPLATE, uniqueLabels[0]];
+      }
+
+      if (labels.length < 4) return [];
+
+      for (let size = 2; size <= Math.min(4, Math.floor(labels.length / 2)); size++) {
+        const template = labels.slice(0, size);
+        if (new Set(template).size !== template.length) continue;
+
+        let matches = 0;
+        for (let i = 0; i < labels.length; i++) {
+          if (labels[i] === template[i % size]) matches++;
+        }
+
+        if (matches / labels.length >= 0.75) {
+          return hasLeadingUnlabeled ? [UNLABELED_TEMPLATE, ...template] : template;
+        }
+      }
+
+      return [];
+    }
+
+    function labelIndexInTemplate(group, template) {
+      if (isUnlabeledGroup(group)) return template.findIndex(item => item === UNLABELED_TEMPLATE);
+      const label = normalizeLabel(group.label);
+      return template.findIndex(item => item === label);
+    }
+
+    function cloneGroupForOwner(group, source) {
+      return { ...group, source };
+    }
+
+    function assignGroupsByTemplate(timeItems, groups, template) {
+      const byTimeIndex = new Map(timeItems.map(item => [item.index, []]));
+      const used = new Set();
+
+      for (let t = 0; t < timeItems.length; t++) {
+        const prevTimeIndex = t ? timeItems[t - 1].index : -1;
+        const current = timeItems[t];
+        const nextTimeIndex = t < timeItems.length - 1 ? timeItems[t + 1].index : Infinity;
+        const selected = [];
+        const selectedLabels = new Set();
+
+        const tryTake = (group, source) => {
+          const templateIndex = labelIndexInTemplate(group, template);
+          if (templateIndex === -1 || selectedLabels.has(templateIndex) || used.has(group)) return false;
+          selected.push(cloneGroupForOwner(group, source));
+          selectedLabels.add(templateIndex);
+          used.add(group);
+          return selectedLabels.size === template.length;
+        };
+
+        const beforeGroups = groups.filter(group =>
+          !used.has(group) &&
+          !isUnlabeledGroup(group) &&
+          group.start > prevTimeIndex &&
+          group.end < current.index
+        );
+
+        for (const group of beforeGroups) {
+          if (tryTake(group, "前置价格组")) break;
+        }
+
+        const afterGroups = groups.filter(group =>
+          !used.has(group) &&
+          !isUnlabeledGroup(group) &&
+          group.start > current.index &&
+          group.start < nextTimeIndex
+        );
+
+        for (const group of afterGroups) {
+          if (tryTake(group, "后置价格组")) break;
+        }
+
+        if (selected.length) byTimeIndex.set(current.index, selected);
+      }
+
+      return { byTimeIndex, used };
+    }
+
     function assignGroupsToSections(timeItems, groups) {
+      const template = inferLabelTemplate(groups, timeItems);
+      if (template.length) {
+        const templated = assignGroupsByTemplate(timeItems, groups, template);
+        const byTimeIndex = templated.byTimeIndex;
+
+        for (const group of groups) {
+          if (templated.used.has(group) || !isUnlabeledGroup(group)) continue;
+
+          const prev = previousTimeForGroup(timeItems, group.start);
+          const next = nextTimeForGroup(timeItems, group.end);
+          const owner = prev || next;
+          if (owner && !(byTimeIndex.get(owner.index) || []).length) {
+            byTimeIndex.get(owner.index).push(cloneGroupForOwner(group, "未标注价格组"));
+          }
+        }
+
+        byTimeIndex.template = template;
+        return byTimeIndex;
+      }
+
       const byTimeIndex = new Map(timeItems.map(item => [item.index, []]));
 
       for (const group of groups) {
@@ -868,7 +1020,10 @@
           owner = prevStartDistance <= 2 ? prev : (nextDistance < prevStartDistance ? next : prev);
         }
 
-        if (owner) byTimeIndex.get(owner.index).push(group);
+        if (owner) {
+          const source = prev && next && owner === next ? "前置价格组" : "后置价格组";
+          byTimeIndex.get(owner.index).push(cloneGroupForOwner(group, source));
+        }
       }
 
       return byTimeIndex;
@@ -963,7 +1118,8 @@
         const groups = item.matched.flatMap(section =>
           (section.groups || []).map(group => {
             const prices = group.prices.map(v => Number(v).toFixed(4)).join(" / ");
-            return `${section.label}｜${group.label}：${prices}`;
+            const source = group.source ? `${group.source}｜` : "";
+            return `${section.label}｜${source}${group.label}：${prices}`;
           })
         );
         div.innerHTML = `
