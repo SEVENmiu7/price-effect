@@ -23,6 +23,7 @@
     }
 
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
 
     body {
       margin: 0;
@@ -279,6 +280,14 @@
       display: grid;
       grid-template-columns: 1fr auto;
       gap: 8px;
+    }
+
+    .sample-lock {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
     }
 
     .button-row { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -568,6 +577,26 @@
         </div>
         <textarea id="rawInput" data-testid="raw-input" spellcheck="false" placeholder="粘贴完整 OCR 文本。建议保留时间、价格标签和全部数字，不要提前手工删减。"></textarea>
         <div class="input-tools">
+          <!-- INTERNAL_SAMPLES_START -->
+          <div class="internal-samples" id="internalSamples">
+            <div class="sample-lock" id="sampleLock">
+              <button type="button" id="unlockSamplesBtn">内部样例</button>
+              <span>需要内部密钥</span>
+            </div>
+            <div class="sample-row" id="sampleTools" hidden>
+              <select id="sampleSelect" aria-label="回归样例">
+                <option value="actual-fast">实际截图转录：快电价 / VIP 价</option>
+                <option value="actual-diamond">实际截图转录：黑钻会员价 / 挂牌价</option>
+                <option value="actual-huazi">实际截图转录：华自价 / VIP 价</option>
+                <option value="actual-three">实际截图转录：三个价格取最低两个</option>
+                <option value="history-mixed">历史样例：价格组前后混排</option>
+                <option value="history-formula">历史样例：电费 + 服务费 = 总价</option>
+                <option value="history-cross">历史样例：跨多个目标时段</option>
+              </select>
+              <button id="loadSampleBtn">载入样例</button>
+            </div>
+          </div>
+          <!-- INTERNAL_SAMPLES_END -->
           <div class="button-row">
             <button class="primary" id="analyseBtn" data-testid="analyse-button">整理价格</button>
             <button id="resetResultBtn">重算并覆盖修改</button>
@@ -626,7 +655,7 @@
       </section>
     </main>
 
-    <footer>工具会保留命中时段与候选价格，最终结果仍需人工核验。</footer>
+    <footer>实际截图转录样例用于验证业务映射，不等同于 PixPin 的真实线性 OCR 输出。上线前仍需补充真实 OCR 文本进行回归。</footer>
   </div>
 
   <script>
@@ -658,6 +687,234 @@
         ]
       }
     };
+
+    const SAMPLES = {
+      "actual-fast": `00:00-05:59
+快电价
+0.7200
+0.4200
+0.3000
+已降0.20元/度
+VIP价
+0.6400
+0.4200
+0.2200
+06:00-11:59
+快电价
+1.0500
+0.8100
+0.2400
+已降0.16元/度
+VIP价
+0.9860
+0.8100
+0.1760
+12:00-13:59
+快电价
+0.7200
+0.4200
+0.3000
+VIP价
+0.6400
+0.4200
+0.2200
+14:00-15:59
+快电价
+1.0500
+0.8100
+0.2400
+VIP价
+0.9860
+0.8100
+0.1760
+16:00-23:59
+快电价
+1.4400
+1.2000
+0.2400
+VIP价
+1.3760
+1.2000
+0.1760`,
+      "actual-diamond": `00:00-06:00
+黑钻会员价
+0.6463
+0.4200
+0.2263
+挂牌价
+0.7300
+0.4200
+0.3100
+06:00-12:00
+充电单价
+1.0700
+0.8100
+0.2600
+12:00-14:00
+黑钻会员价
+0.7120
+0.4200
+0.2920
+挂牌价
+0.8200
+0.4200
+0.4000
+14:00-16:00
+充电单价
+1.0700
+0.8100
+0.2600
+16:00-24:00
+充电单价
+1.4500
+1.2000
+0.2500`,
+      "actual-huazi": `00:00-06:00
+华自价
+0.37
+0.29
+0.66
+VIP价
+0.37
+0.23
+0.60
+06:00-12:00
+华自价
+0.68
+0.29
+0.97
+VIP价
+0.68
+0.23
+0.91
+12:00-14:00
+华自价
+0.37
+0.36
+0.73
+VIP价
+0.37
+0.32
+0.69
+14:00-16:00
+华自价
+0.68
+0.29
+0.97
+VIP价
+0.68
+0.23
+0.91
+16:00-18:00
+华自价
+1.00
+0.29
+1.29
+VIP价
+1.00
+0.25
+1.25
+18:00-22:00
+华自价
+1.00
+0.29
+1.29
+VIP价
+1.00
+0.25
+1.25
+22:00-24:00
+华自价
+1.00
+0.29
+1.29
+VIP价
+1.00
+0.25
+1.25`,
+      "actual-three": `00:00-06:00
+会员价
+0.6400
+0.3900
+0.2500
+活动价
+0.7450
+0.3900
+0.3550
+站点价
+0.9400
+0.3900
+0.5500`,
+      "history-mixed": `00:00-06:00
+闪联价
+0.49
+0.33
+0.16
+VIP价
+0.47
+0.33
+0.14
+闪联价
+0.82
+0.66
+0.16
+06:00-12:00
+VIP价
+0.80
+0.66
+0.14
+闪联价
+0.49
+0.33
+0.16
+12:00-14:00
+VIP价
+0.47
+0.33
+0.14`,
+      "history-formula": `06:00~12:00
+0.6565
+0.1500
+0.8065元/度
+12:00~14:00
+0.3208
+0.2000
+0.5208元/度
+00:00~06:00
+0.3208
+0.2000
+0.5208元/度`,
+      "history-cross": `电站价
+YKC价
+会员价
+02:30~24:00
+当前时段
+0.8800
+0.8800
+0.8695
+电费
+0.6190
+0.6190
+0.6190
+服务费
+0.2610
+0.2610
+0.2505最高优惠5元
+00:00~02:30
+0.8800
+0.8800
+0.8695
+电费
+0.6190
+0.6190
+0.6190
+服务费
+0.2610
+0.2610
+0.2505最高优惠5元`
+    };
+
+    const INTERNAL_SAMPLE_KEY = "didichangsha";
 
     const regionSelect = document.getElementById("regionSelect");
     const effectiveMonth = document.getElementById("effectiveMonth");
@@ -1054,7 +1311,7 @@
       const text = rawInput.value.trim();
       if (!text) {
         renderEmptyRows();
-        noticeStack.innerHTML = `<div class="notice danger">请先粘贴 OCR 文本。</div>`;
+        noticeStack.innerHTML = `<div class="notice danger">请先粘贴 OCR 文本，或载入一个回归样例。</div>`;
         return;
       }
       parsedSections = parseSections(text);
@@ -1203,6 +1460,18 @@
       if (rawInput.value.trim()) analyse(); else renderEmptyRows();
     });
     effectiveMonth.addEventListener("change", () => { persistGeneralPreferences(); renderSchedule(); });
+    // INTERNAL_SAMPLE_UNLOCK_START
+    document.getElementById("unlockSamplesBtn").addEventListener("click", () => {
+      const key = window.prompt("请输入内部样例密钥");
+      if (key === INTERNAL_SAMPLE_KEY) {
+        document.getElementById("sampleLock").hidden = true;
+        document.getElementById("sampleTools").hidden = false;
+      } else if (key !== null) {
+        window.alert("密钥不正确");
+      }
+    });
+    // INTERNAL_SAMPLE_UNLOCK_END
+    document.getElementById("loadSampleBtn").addEventListener("click", () => { rawInput.value = SAMPLES[sampleSelect.value]; analyse(); });
     document.getElementById("analyseBtn").addEventListener("click", analyse);
     document.getElementById("resetResultBtn").addEventListener("click", analyse);
     document.getElementById("clearBtn").addEventListener("click", () => { rawInput.value = ""; renderEmptyRows(); });
