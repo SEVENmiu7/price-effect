@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>电站价格整理器 · 地区版</title>
+  <title>鐢电珯浠锋牸鏁寸悊鍣?路 鍦板尯鐗?/title>
   <style>
     :root {
       --paper: #f4f9ff;
@@ -23,6 +23,7 @@
     }
 
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
 
     body {
       margin: 0;
@@ -281,6 +282,14 @@
       gap: 8px;
     }
 
+    .sample-lock {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
     .button-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
     button {
@@ -530,134 +539,335 @@
     <header class="masthead">
       <div>
         <div class="eyebrow">Price Operations Console</div>
-        <h1>电站价格整理器</h1>
-        <div class="subtitle">把 PixPin OCR 文本转换成地区时段价格。系统先识别，再由人工修改与确认；价格标签仅辅助分组，最终按同一时段最低两个有效总价取值。</div>
+        <h1>鐢电珯浠锋牸鏁寸悊鍣?/h1>
+        <div class="subtitle">鎶?PixPin OCR 鏂囨湰杞崲鎴愬湴鍖烘椂娈典环鏍笺€傜郴缁熷厛璇嗗埆锛屽啀鐢变汉宸ヤ慨鏀逛笌纭锛涗环鏍兼爣绛句粎杈呭姪鍒嗙粍锛屾渶缁堟寜鍚屼竴鏃舵鏈€浣庝袱涓湁鏁堟€讳环鍙栧€笺€?/div>
       </div>
-      <div class="scope-badge">离线单文件 · 团队发布版</div>
+      <div class="scope-badge">绂荤嚎鍗曟枃浠?路 鍥㈤槦鍙戝竷鐗?/div>
     </header>
 
-    <section class="control-strip" aria-label="地区配置">
+    <section class="control-strip" aria-label="鍦板尯閰嶇疆">
       <div class="control">
-        <label for="regionSelect">地区选择</label>
+        <label for="regionSelect">鍦板尯閫夋嫨</label>
         <select id="regionSelect" data-testid="region-select">
-          <option value="changsha">长沙</option>
-          <option value="jiangxi">江西</option>
+          <option value="changsha">闀挎矙</option>
+          <option value="jiangxi">姹熻タ</option>
         </select>
       </div>
       <div class="control">
-        <label for="effectiveMonth">生效月份</label>
+        <label for="effectiveMonth">鐢熸晥鏈堜唤</label>
         <input id="effectiveMonth" type="month" value="2026-06" data-testid="effective-month">
       </div>
-      <div class="control-note">月份用于标记当前地区时段配置，不改变价格解析逻辑。国家电网时段调整后，只更新地区配置与生效月份。</div>
+      <div class="control-note">鏈堜唤鐢ㄤ簬鏍囪褰撳墠鍦板尯鏃舵閰嶇疆锛屼笉鏀瑰彉浠锋牸瑙ｆ瀽閫昏緫銆傚浗瀹剁數缃戞椂娈佃皟鏁村悗锛屽彧鏇存柊鍦板尯閰嶇疆涓庣敓鏁堟湀浠姐€?/div>
     </section>
 
     <section class="schedule-panel">
       <div class="panel-title-row">
-        <h2 id="scheduleTitle">长沙全天时段</h2>
-        <div class="panel-kicker" id="scheduleMeta">当前配置 · 2026-06</div>
+        <h2 id="scheduleTitle">闀挎矙鍏ㄥぉ鏃舵</h2>
+        <div class="panel-kicker" id="scheduleMeta">褰撳墠閰嶇疆 路 2026-06</div>
       </div>
-      <div class="timeline" id="timeline" aria-label="全天时段时间轴"></div>
+      <div class="timeline" id="timeline" aria-label="鍏ㄥぉ鏃舵鏃堕棿杞?></div>
       <div class="schedule-list" id="scheduleList"></div>
     </section>
 
     <main class="workspace">
       <section class="panel">
         <div class="panel-head">
-          <h2>粘贴 PixPin OCR 文本</h2>
+          <h2>绮樿创 PixPin OCR 鏂囨湰</h2>
           <span class="step-no">STEP 01</span>
         </div>
-        <textarea id="rawInput" data-testid="raw-input" spellcheck="false" placeholder="粘贴完整 OCR 文本。建议保留时间、价格标签和全部数字，不要提前手工删减。"></textarea>
+        <textarea id="rawInput" data-testid="raw-input" spellcheck="false" placeholder="绮樿创瀹屾暣 OCR 鏂囨湰銆傚缓璁繚鐣欐椂闂淬€佷环鏍兼爣绛惧拰鍏ㄩ儴鏁板瓧锛屼笉瑕佹彁鍓嶆墜宸ュ垹鍑忋€?></textarea>
         <div class="input-tools">
+          <!-- INTERNAL_SAMPLES_START -->
+          <div class="internal-samples" id="internalSamples">
+            <div class="sample-lock" id="sampleLock">
+              <button type="button" id="unlockSamplesBtn">鍐呴儴鏍蜂緥</button>
+              <span>闇€瑕佸唴閮ㄥ瘑閽?/span>
+            </div>
+            <div class="sample-row" id="sampleTools" hidden>
+              <select id="sampleSelect" aria-label="鍥炲綊鏍蜂緥">
+                <option value="actual-fast">瀹為檯鎴浘杞綍锛氬揩鐢典环 / VIP 浠?/option>
+                <option value="actual-diamond">瀹為檯鎴浘杞綍锛氶粦閽讳細鍛樹环 / 鎸傜墝浠?/option>
+                <option value="actual-huazi">瀹為檯鎴浘杞綍锛氬崕鑷环 / VIP 浠?/option>
+                <option value="actual-three">瀹為檯鎴浘杞綍锛氫笁涓环鏍煎彇鏈€浣庝袱涓?/option>
+                <option value="history-mixed">鍘嗗彶鏍蜂緥锛氫环鏍肩粍鍓嶅悗娣锋帓</option>
+                <option value="history-formula">鍘嗗彶鏍蜂緥锛氱數璐?+ 鏈嶅姟璐?= 鎬讳环</option>
+                <option value="history-cross">鍘嗗彶鏍蜂緥锛氳法澶氫釜鐩爣鏃舵</option>
+              </select>
+              <button id="loadSampleBtn">杞藉叆鏍蜂緥</button>
+            </div>
+          </div>
+          <!-- INTERNAL_SAMPLES_END -->
           <div class="button-row">
-            <button class="primary" id="analyseBtn" data-testid="analyse-button">整理价格</button>
-            <button id="resetResultBtn">重算并覆盖修改</button>
-            <button class="ghost-danger" id="clearBtn">清空</button>
+            <button class="primary" id="analyseBtn" data-testid="analyse-button">鏁寸悊浠锋牸</button>
+            <button id="resetResultBtn">閲嶇畻骞惰鐩栦慨鏀?/button>
+            <button class="ghost-danger" id="clearBtn">娓呯┖</button>
           </div>
         </div>
       </section>
 
       <section class="panel">
         <div class="panel-head">
-          <h2>可修改结果与复核</h2>
+          <h2>鍙慨鏀圭粨鏋滀笌澶嶆牳</h2>
           <span class="step-no">STEP 02</span>
         </div>
         <div class="notice-stack" id="noticeStack" aria-live="polite"></div>
         <div class="result-actions">
-          <button id="selectAllBtn">全选时段</button>
-          <button id="selectNoneBtn">取消全选</button>
-          <button class="primary" id="savePreferenceBtn">保存为常用时段</button>
-          <button id="restorePreferenceBtn">恢复地区预设</button>
+          <button id="selectAllBtn">鍏ㄩ€夋椂娈?/button>
+          <button id="selectNoneBtn">鍙栨秷鍏ㄩ€?/button>
+          <button class="primary" id="savePreferenceBtn">淇濆瓨涓哄父鐢ㄦ椂娈?/button>
+          <button id="restorePreferenceBtn">鎭㈠鍦板尯棰勮</button>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>使用</th>
-                <th>电价类型</th>
-                <th>目标时段</th>
-                <th>命中实际时段</th>
-                <th>候选总价</th>
-                <th>非会员价</th>
-                <th>会员价</th>
-                <th>状态</th>
+                <th>浣跨敤</th>
+                <th>鐢典环绫诲瀷</th>
+                <th>鐩爣鏃舵</th>
+                <th>鍛戒腑瀹為檯鏃舵</th>
+                <th>鍊欓€夋€讳环</th>
+                <th>闈炰細鍛樹环</th>
+                <th>浼氬憳浠?/th>
+                <th>鐘舵€?/th>
               </tr>
             </thead>
             <tbody id="resultBody"></tbody>
           </table>
         </div>
-        <section class="copy-console" aria-label="横向复制结果">
+        <section class="copy-console" aria-label="妯悜澶嶅埗缁撴灉">
           <div class="copy-console-head">
-            <span>复制一行</span>
-            <small>表格按全天顺序核验；此处按业务顺序输出，可用箭头调整</small>
+            <span>澶嶅埗涓€琛?/span>
+            <small>琛ㄦ牸鎸夊叏澶╅『搴忔牳楠岋紱姝ゅ鎸変笟鍔￠『搴忚緭鍑猴紝鍙敤绠ご璋冩暣</small>
           </div>
           <div class="order-editor" id="orderEditor"></div>
           <div class="copy-scroll">
             <div class="copy-labels" id="copyLabels"></div>
-            <div class="copy-preview" id="copyPreview"><span>尚未生成结果</span></div>
+            <div class="copy-preview" id="copyPreview"><span>灏氭湭鐢熸垚缁撴灉</span></div>
           </div>
           <div class="copy-console-actions">
-            <button class="accent" id="copyBtn">复制一行</button>
+            <button class="accent" id="copyBtn">澶嶅埗涓€琛?/button>
           </div>
         </section>
         <details class="audit">
-          <summary>识别审计：查看原始时段、价格组与归属</summary>
+          <summary>璇嗗埆瀹¤锛氭煡鐪嬪師濮嬫椂娈点€佷环鏍肩粍涓庡綊灞?/summary>
           <div class="audit-body" id="auditBody"></div>
         </details>
       </section>
     </main>
 
-    <footer>工具会保留命中时段与候选价格，最终结果仍需人工核验。</footer>
+    <footer>瀹為檯鎴浘杞綍鏍蜂緥鐢ㄤ簬楠岃瘉涓氬姟鏄犲皠锛屼笉绛夊悓浜?PixPin 鐨勭湡瀹炵嚎鎬?OCR 杈撳嚭銆備笂绾垮墠浠嶉渶琛ュ厖鐪熷疄 OCR 鏂囨湰杩涜鍥炲綊銆?/footer>
   </div>
 
   <script>
     const REGION_CONFIGS = {
       changsha: {
-        name: "长沙",
-        defaultOrder: ["00:00-06:00|晚谷", "12:00-14:00|中谷", "06:00-12:00|平"],
+        name: "闀挎矙",
+        defaultOrder: ["00:00-06:00|鏅氳胺", "12:00-14:00|涓胺", "06:00-12:00|骞?],
         periods: [
-          { name: "晚谷", start: "00:00", end: "06:00", tone: 2 },
-          { name: "平", start: "06:00", end: "12:00", tone: 5 },
-          { name: "中谷", start: "12:00", end: "14:00", tone: 1 },
-          { name: "平", start: "14:00", end: "16:00", tone: 5 },
-          { name: "峰", start: "16:00", end: "24:00", tone: 4 }
+          { name: "鏅氳胺", start: "00:00", end: "06:00", tone: 2 },
+          { name: "骞?, start: "06:00", end: "12:00", tone: 5 },
+          { name: "涓胺", start: "12:00", end: "14:00", tone: 1 },
+          { name: "骞?, start: "14:00", end: "16:00", tone: 5 },
+          { name: "宄?, start: "16:00", end: "24:00", tone: 4 }
         ]
       },
       jiangxi: {
-        name: "江西",
-        defaultOrder: ["12:00-14:00|深谷", "01:00-05:00|低谷", "00:00-01:00|平"],
+        name: "姹熻タ",
+        defaultOrder: ["12:00-14:00|娣辫胺", "01:00-05:00|浣庤胺", "00:00-01:00|骞?],
         periods: [
-          { name: "平", start: "00:00", end: "01:00", tone: 5 },
-          { name: "低谷", start: "01:00", end: "05:00", tone: 2 },
-          { name: "平", start: "05:00", end: "11:30", tone: 5 },
-          { name: "低谷", start: "11:30", end: "12:00", tone: 2 },
-          { name: "深谷", start: "12:00", end: "14:00", tone: 1 },
-          { name: "低谷", start: "14:00", end: "14:30", tone: 2 },
-          { name: "平", start: "14:30", end: "16:00", tone: 5 },
-          { name: "高峰", start: "16:00", end: "22:00", tone: 4 },
-          { name: "平", start: "22:00", end: "24:00", tone: 5 }
+          { name: "骞?, start: "00:00", end: "01:00", tone: 5 },
+          { name: "浣庤胺", start: "01:00", end: "05:00", tone: 2 },
+          { name: "骞?, start: "05:00", end: "11:30", tone: 5 },
+          { name: "浣庤胺", start: "11:30", end: "12:00", tone: 2 },
+          { name: "娣辫胺", start: "12:00", end: "14:00", tone: 1 },
+          { name: "浣庤胺", start: "14:00", end: "14:30", tone: 2 },
+          { name: "骞?, start: "14:30", end: "16:00", tone: 5 },
+          { name: "楂樺嘲", start: "16:00", end: "22:00", tone: 4 },
+          { name: "骞?, start: "22:00", end: "24:00", tone: 5 }
         ]
       }
     };
+
+    const SAMPLES = {
+      "actual-fast": `00:00-05:59
+蹇數浠?0.7200
+0.4200
+0.3000
+宸查檷0.20鍏?搴?VIP浠?0.6400
+0.4200
+0.2200
+06:00-11:59
+蹇數浠?1.0500
+0.8100
+0.2400
+宸查檷0.16鍏?搴?VIP浠?0.9860
+0.8100
+0.1760
+12:00-13:59
+蹇數浠?0.7200
+0.4200
+0.3000
+VIP浠?0.6400
+0.4200
+0.2200
+14:00-15:59
+蹇數浠?1.0500
+0.8100
+0.2400
+VIP浠?0.9860
+0.8100
+0.1760
+16:00-23:59
+蹇數浠?1.4400
+1.2000
+0.2400
+VIP浠?1.3760
+1.2000
+0.1760`,
+      "actual-diamond": `00:00-06:00
+榛戦捇浼氬憳浠?0.6463
+0.4200
+0.2263
+鎸傜墝浠?0.7300
+0.4200
+0.3100
+06:00-12:00
+鍏呯數鍗曚环
+1.0700
+0.8100
+0.2600
+12:00-14:00
+榛戦捇浼氬憳浠?0.7120
+0.4200
+0.2920
+鎸傜墝浠?0.8200
+0.4200
+0.4000
+14:00-16:00
+鍏呯數鍗曚环
+1.0700
+0.8100
+0.2600
+16:00-24:00
+鍏呯數鍗曚环
+1.4500
+1.2000
+0.2500`,
+      "actual-huazi": `00:00-06:00
+鍗庤嚜浠?0.37
+0.29
+0.66
+VIP浠?0.37
+0.23
+0.60
+06:00-12:00
+鍗庤嚜浠?0.68
+0.29
+0.97
+VIP浠?0.68
+0.23
+0.91
+12:00-14:00
+鍗庤嚜浠?0.37
+0.36
+0.73
+VIP浠?0.37
+0.32
+0.69
+14:00-16:00
+鍗庤嚜浠?0.68
+0.29
+0.97
+VIP浠?0.68
+0.23
+0.91
+16:00-18:00
+鍗庤嚜浠?1.00
+0.29
+1.29
+VIP浠?1.00
+0.25
+1.25
+18:00-22:00
+鍗庤嚜浠?1.00
+0.29
+1.29
+VIP浠?1.00
+0.25
+1.25
+22:00-24:00
+鍗庤嚜浠?1.00
+0.29
+1.29
+VIP浠?1.00
+0.25
+1.25`,
+      "actual-three": `00:00-06:00
+浼氬憳浠?0.6400
+0.3900
+0.2500
+娲诲姩浠?0.7450
+0.3900
+0.3550
+绔欑偣浠?0.9400
+0.3900
+0.5500`,
+      "history-mixed": `00:00-06:00
+闂仈浠?0.49
+0.33
+0.16
+VIP浠?0.47
+0.33
+0.14
+闂仈浠?0.82
+0.66
+0.16
+06:00-12:00
+VIP浠?0.80
+0.66
+0.14
+闂仈浠?0.49
+0.33
+0.16
+12:00-14:00
+VIP浠?0.47
+0.33
+0.14`,
+      "history-formula": `06:00~12:00
+0.6565
+0.1500
+0.8065鍏?搴?12:00~14:00
+0.3208
+0.2000
+0.5208鍏?搴?00:00~06:00
+0.3208
+0.2000
+0.5208鍏?搴,
+      "history-cross": `鐢电珯浠?YKC浠?浼氬憳浠?02:30~24:00
+褰撳墠鏃舵
+0.8800
+0.8800
+0.8695
+鐢佃垂
+0.6190
+0.6190
+0.6190
+鏈嶅姟璐?0.2610
+0.2610
+0.2505鏈€楂樹紭鎯?鍏?00:00~02:30
+0.8800
+0.8800
+0.8695
+鐢佃垂
+0.6190
+0.6190
+0.6190
+鏈嶅姟璐?0.2610
+0.2610
+0.2505鏈€楂樹紭鎯?鍏僠
+    };
+
+    const INTERNAL_SAMPLE_KEY = "didichangsha";
 
     const regionSelect = document.getElementById("regionSelect");
     const effectiveMonth = document.getElementById("effectiveMonth");
@@ -687,7 +897,7 @@
     }
 
     function writePreferences(value) {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); } catch { /* 本地存储不可用时仍可单次使用 */ }
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); } catch { /* 鏈湴瀛樺偍涓嶅彲鐢ㄦ椂浠嶅彲鍗曟浣跨敤 */ }
     }
 
     const storedPreferences = readPreferences();
@@ -724,7 +934,7 @@
       next.regions = next.regions || {};
       next.regions[regionSelect.value] = { selected: [...state.selected], order: [...state.order] };
       writePreferences(next);
-      noticeStack.insertAdjacentHTML("afterbegin", `<div class="notice">已保存 ${REGION_CONFIGS[regionSelect.value].name} 的常用时段和复制顺序。新文本会沿用此设置。</div>`);
+      noticeStack.insertAdjacentHTML("afterbegin", `<div class="notice">宸蹭繚瀛?${REGION_CONFIGS[regionSelect.value].name} 鐨勫父鐢ㄦ椂娈靛拰澶嶅埗椤哄簭銆傛柊鏂囨湰浼氭部鐢ㄦ璁剧疆銆?/div>`);
     }
 
     function restoreRegionPreset() {
@@ -744,14 +954,14 @@
     function normalizeRawText(text) {
       return String(text || "")
         .replace(/\r/g, "\n")
-        .replace(/：/g, ":")
-        .replace(/[～~—–至]/g, "-")
+        .replace(/锛?g, ":")
+        .replace(/[锝瀪鈥斺€撹嚦]/g, "-")
         .replace(/(\d{1,2}:\d{2})\s*\n\s*-\s*\n?\s*(\d{1,2}:\d{2})/g, "$1-$2")
         .replace(/(\d{1,2}:\d{2})\s*-\s*\n\s*(\d{1,2}:\d{2})/g, "$1-$2");
     }
 
     function normTime(text) {
-      const normalized = String(text || "").replace(/：/g, ":").replace(/[～~—–至]/g, "-");
+      const normalized = String(text || "").replace(/锛?g, ":").replace(/[锝瀪鈥斺€撹嚦]/g, "-");
       const match = normalized.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
       if (!match) return null;
       const startH = Number(match[1]);
@@ -768,23 +978,23 @@
 
     function getPositiveNumbers(line, minValue = 0.1) {
       if (normTime(line)) return [];
-      return [...String(line).matchAll(/(?<![-－])\b\d+(?:\.\d{1,4})\b/g)]
+      return [...String(line).matchAll(/(?<![-锛峕)\b\d+(?:\.\d{1,4})\b/g)]
         .map(match => Number(match[0]))
         .filter(value => value >= minValue && value <= 3);
     }
 
     function isNumericOnlyLine(line) {
-      const normalized = String(line).replace(/[元度\s/]/g, "");
+      const normalized = String(line).replace(/[鍏冨害\s/]/g, "");
       return /^\d+(?:\.\d{1,4})$/.test(normalized);
     }
 
     function isIgnoreLabel(line) {
-      return /电费|服务费|优惠金额|最高优惠|立减|已减|已降|补贴|省\d|当前时间|更新时间/.test(line);
+      return /鐢佃垂|鏈嶅姟璐箌浼樻儬閲戦|鏈€楂樹紭鎯爘绔嬪噺|宸插噺|宸查檷|琛ヨ创|鐪乗d|褰撳墠鏃堕棿|鏇存柊鏃堕棿/.test(line);
     }
 
     function isPriceLabel(line) {
       if (isIgnoreLabel(line) || normTime(line)) return false;
-      return /会员|VIP|黑钻|优惠价|挂牌价|电站价|站点价|快电价|闪联价|华自价|YKC价|原价|折扣价|专享|活动价|充电单价|当前价|收费金额/.test(line);
+      return /浼氬憳|VIP|榛戦捇|浼樻儬浠穦鎸傜墝浠穦鐢电珯浠穦绔欑偣浠穦蹇數浠穦闂仈浠穦鍗庤嚜浠穦YKC浠穦鍘熶环|鎶樻墸浠穦涓撲韩|娲诲姩浠穦鍏呯數鍗曚环|褰撳墠浠穦鏀惰垂閲戦/.test(line);
     }
 
     function nearlyEqual(a, b) {
@@ -870,7 +1080,7 @@
         }
         if (getPositiveNumbers(lines[i]).length) {
           const collected = collectGroupNumbers(lines, i);
-          if (collected.prices.length) groups.push({ label: "未标注价格组", start: i, end: collected.endIndex, prices: collected.prices });
+          if (collected.prices.length) groups.push({ label: "鏈爣娉ㄤ环鏍肩粍", start: i, end: collected.endIndex, prices: collected.prices });
           i = collected.endIndex + 1;
           continue;
         }
@@ -879,7 +1089,7 @@
       return groups;
     }
 
-    function isUnlabeledGroup(group) { return !group.label || group.label.includes("未标注"); }
+    function isUnlabeledGroup(group) { return !group.label || group.label.includes("鏈爣娉?); }
     function normalizeLabel(label) { return String(label || "").replace(/\s+/g, "").trim(); }
     const UNLABELED_TEMPLATE = "__UNLABELED__";
 
@@ -939,9 +1149,9 @@
           return selectedLabels.size === template.length;
         };
         const beforeGroups = groups.filter(group => !used.has(group) && !isUnlabeledGroup(group) && group.start > prevTimeIndex && group.end < current.index);
-        for (const group of beforeGroups) if (tryTake(group, "前置价格组")) break;
+        for (const group of beforeGroups) if (tryTake(group, "鍓嶇疆浠锋牸缁?)) break;
         const afterGroups = groups.filter(group => !used.has(group) && !isUnlabeledGroup(group) && group.start > current.index && group.start < nextTimeIndex);
-        for (const group of afterGroups) if (tryTake(group, "后置价格组")) break;
+        for (const group of afterGroups) if (tryTake(group, "鍚庣疆浠锋牸缁?)) break;
         if (selected.length) byTimeIndex.set(current.index, selected);
       }
       return { byTimeIndex, used };
@@ -954,7 +1164,7 @@
         for (const group of groups) {
           if (templated.used.has(group) || !isUnlabeledGroup(group)) continue;
           const owner = previousTimeForGroup(timeItems, group.start) || nextTimeForGroup(timeItems, group.end);
-          if (owner && !(templated.byTimeIndex.get(owner.index) || []).length) templated.byTimeIndex.get(owner.index).push({ ...group, source: "未标注价格组" });
+          if (owner && !(templated.byTimeIndex.get(owner.index) || []).length) templated.byTimeIndex.get(owner.index).push({ ...group, source: "鏈爣娉ㄤ环鏍肩粍" });
         }
         templated.byTimeIndex.template = template;
         return templated.byTimeIndex;
@@ -969,7 +1179,7 @@
           const nextDistance = next.index - group.end;
           owner = prevDistance <= 2 ? prev : (nextDistance < prevDistance ? next : prev);
         }
-        if (owner) byTimeIndex.get(owner.index).push({ ...group, source: prev && next && owner === next ? "前置价格组" : "后置价格组" });
+        if (owner) byTimeIndex.get(owner.index).push({ ...group, source: prev && next && owner === next ? "鍓嶇疆浠锋牸缁? : "鍚庣疆浠锋牸缁? });
       }
       return byTimeIndex;
     }
@@ -1011,17 +1221,17 @@
       const end = toMin(target.end);
       const matched = sections.filter(section => section.end > start && section.start < end);
       const available = matched.map(section => ({ section, prices: uniqueSorted(section.prices) })).filter(item => item.prices.length);
-      if (!available.length) return { member: "", nonMember: "", matched, available, status: "missing", note: "未识别到有效总价" };
+      if (!available.length) return { member: "", nonMember: "", matched, available, status: "missing", note: "鏈瘑鍒埌鏈夋晥鎬讳环" };
       let best = available[0];
       for (const item of available) if (item.prices[0] < best.prices[0]) best = item;
       const member = best.prices[0];
       const nonMember = best.prices.length === 1 ? member : best.prices[1];
       const status = best.prices.length === 1 || matched.length > 1 ? "review" : "ok";
       const notes = [];
-      if (best.prices.length === 1) notes.push("只有一个总价，已按同价处理");
-      if (matched.length > 1) notes.push("命中多个实际时段，取最低会员价所在价格组");
-      if (!notes.length) notes.push("已取最低两个有效总价");
-      return { member, nonMember, matched, available, best, status, note: notes.join("；") };
+      if (best.prices.length === 1) notes.push("鍙湁涓€涓€讳环锛屽凡鎸夊悓浠峰鐞?);
+      if (matched.length > 1) notes.push("鍛戒腑澶氫釜瀹為檯鏃舵锛屽彇鏈€浣庝細鍛樹环鎵€鍦ㄤ环鏍肩粍");
+      if (!notes.length) notes.push("宸插彇鏈€浣庝袱涓湁鏁堟€讳环");
+      return { member, nonMember, matched, available, best, status, note: notes.join("锛?) };
     }
 
     function escapeHtml(value) {
@@ -1030,9 +1240,9 @@
 
     function renderSchedule() {
       const config = REGION_CONFIGS[regionSelect.value];
-      const month = effectiveMonth.value || "未设置";
-      document.getElementById("scheduleTitle").textContent = `${config.name}全天时段`;
-      document.getElementById("scheduleMeta").textContent = `当前配置 · ${month}`;
+      const month = effectiveMonth.value || "鏈缃?;
+      document.getElementById("scheduleTitle").textContent = `${config.name}鍏ㄥぉ鏃舵`;
+      document.getElementById("scheduleMeta").textContent = `褰撳墠閰嶇疆 路 ${month}`;
       document.getElementById("timeline").innerHTML = config.periods.map(period => {
         const width = (toMin(period.end) - toMin(period.start)) / 1440 * 100;
         return `<div class="timeline-segment tone-${period.tone}" style="width:${width}%" title="${period.start}-${period.end} ${period.name}"><span>${escapeHtml(period.name)}</span></div>`;
@@ -1044,17 +1254,17 @@
     function renderEmptyRows() {
       const config = REGION_CONFIGS[regionSelect.value];
       const selection = getRegionSelection();
-      resultRows = config.periods.map((period, index) => ({ index, period, selected: selection.selected.includes(periodId(period)), member: "", nonMember: "", matched: [], available: [], status: "missing", note: "等待识别", edited: false }));
+      resultRows = config.periods.map((period, index) => ({ index, period, selected: selection.selected.includes(periodId(period)), member: "", nonMember: "", matched: [], available: [], status: "missing", note: "绛夊緟璇嗗埆", edited: false }));
       parsedSections = [];
       renderResults();
-      noticeStack.innerHTML = `<div class="notice">已载入 ${config.name} ${config.periods.length} 个全天时段。粘贴 OCR 文本后点击“整理价格”。</div>`;
+      noticeStack.innerHTML = `<div class="notice">宸茶浇鍏?${config.name} ${config.periods.length} 涓叏澶╂椂娈点€傜矘璐?OCR 鏂囨湰鍚庣偣鍑烩€滄暣鐞嗕环鏍尖€濄€?/div>`;
     }
 
     function analyse() {
       const text = rawInput.value.trim();
       if (!text) {
         renderEmptyRows();
-        noticeStack.innerHTML = `<div class="notice danger">请先粘贴 OCR 文本。</div>`;
+        noticeStack.innerHTML = `<div class="notice danger">璇峰厛绮樿创 OCR 鏂囨湰锛屾垨杞藉叆涓€涓洖褰掓牱渚嬨€?/div>`;
         return;
       }
       parsedSections = parseSections(text);
@@ -1068,18 +1278,18 @@
 
     function renderResults() {
       resultBody.innerHTML = resultRows.map(row => {
-        const matched = row.matched.length ? row.matched.map(item => item.label).join("、") : "—";
-        const candidates = row.available.length ? uniqueSorted(row.available.flatMap(item => item.prices)).map(v => v.toFixed(4)).join(" / ") : "—";
+        const matched = row.matched.length ? row.matched.map(item => item.label).join("銆?) : "鈥?;
+        const candidates = row.available.length ? uniqueSorted(row.available.flatMap(item => item.prices)).map(v => v.toFixed(4)).join(" / ") : "鈥?;
         const statusClass = row.edited ? "manual" : row.status;
-        const statusText = row.edited ? "人工修改" : ({ ok: "已识别", review: "需复核", missing: "缺失" }[row.status] || "待处理");
+        const statusText = row.edited ? "浜哄伐淇敼" : ({ ok: "宸茶瘑鍒?, review: "闇€澶嶆牳", missing: "缂哄け" }[row.status] || "寰呭鐞?);
         return `<tr data-row-index="${row.index}" class="${row.edited ? "edited" : ""} ${row.status === "missing" ? "error-row" : ""}">
-          <td><input type="checkbox" class="row-select" ${row.selected ? "checked" : ""} aria-label="选择 ${escapeHtml(row.period.name)} ${row.period.start}-${row.period.end}"></td>
+          <td><input type="checkbox" class="row-select" ${row.selected ? "checked" : ""} aria-label="閫夋嫨 ${escapeHtml(row.period.name)} ${row.period.start}-${row.period.end}"></td>
           <td><span class="period-name">${escapeHtml(row.period.name)}</span></td>
           <td class="mono">${row.period.start}-${row.period.end}</td>
           <td class="source-cell mono">${escapeHtml(matched)}</td>
           <td class="source-cell mono">${escapeHtml(candidates)}</td>
-          <td><input class="price-input" data-kind="nonMember" inputmode="decimal" value="${row.nonMember !== "" ? Number(row.nonMember).toFixed(4) : ""}" aria-label="${escapeHtml(row.period.name)}非会员价"></td>
-          <td><input class="price-input" data-kind="member" inputmode="decimal" value="${row.member !== "" ? Number(row.member).toFixed(4) : ""}" aria-label="${escapeHtml(row.period.name)}会员价"></td>
+          <td><input class="price-input" data-kind="nonMember" inputmode="decimal" value="${row.nonMember !== "" ? Number(row.nonMember).toFixed(4) : ""}" aria-label="${escapeHtml(row.period.name)}闈炰細鍛樹环"></td>
+          <td><input class="price-input" data-kind="member" inputmode="decimal" value="${row.member !== "" ? Number(row.member).toFixed(4) : ""}" aria-label="${escapeHtml(row.period.name)}浼氬憳浠?></td>
           <td><span class="status ${statusClass}" title="${escapeHtml(row.note)}">${statusText}</span></td>
         </tr>`;
       }).join("");
@@ -1109,7 +1319,7 @@
           tr.classList.add("edited");
           const chip = tr.querySelector(".status");
           chip.className = "status manual";
-          chip.textContent = "人工修改";
+          chip.textContent = "浜哄伐淇敼";
           updateCopyPreview();
         }));
       });
@@ -1117,25 +1327,25 @@
 
     function renderNotices() {
       const notices = [];
-      if (!parsedSections.length) notices.push({ type: "danger", text: "没有识别到时间段，请检查 OCR 文本中的时间格式。" });
-      else notices.push({ type: "", text: `识别到 ${parsedSections.length} 个去重后的实际时段；地区目标时段为 ${resultRows.length} 个。` });
+      if (!parsedSections.length) notices.push({ type: "danger", text: "娌℃湁璇嗗埆鍒版椂闂存锛岃妫€鏌?OCR 鏂囨湰涓殑鏃堕棿鏍煎紡銆? });
+      else notices.push({ type: "", text: `璇嗗埆鍒?${parsedSections.length} 涓幓閲嶅悗鐨勫疄闄呮椂娈碉紱鍦板尯鐩爣鏃舵涓?${resultRows.length} 涓€俙 });
       const missing = resultRows.filter(row => row.status === "missing").length;
       const review = resultRows.filter(row => row.status === "review").length;
-      if (missing) notices.push({ type: "danger", text: `${missing} 个目标时段没有有效价格，必须人工补录。` });
-      if (review) notices.push({ type: "warn", text: `${review} 个目标时段按单一价格或多个实际时段处理，请核对后再复制。` });
-      if (!missing && !review) notices.push({ type: "", text: "所有目标时段均识别到至少两个有效总价。仍建议对照截图完成最终核验。" });
+      if (missing) notices.push({ type: "danger", text: `${missing} 涓洰鏍囨椂娈垫病鏈夋湁鏁堜环鏍硷紝蹇呴』浜哄伐琛ュ綍銆俙 });
+      if (review) notices.push({ type: "warn", text: `${review} 涓洰鏍囨椂娈垫寜鍗曚竴浠锋牸鎴栧涓疄闄呮椂娈靛鐞嗭紝璇锋牳瀵瑰悗鍐嶅鍒躲€俙 });
+      if (!missing && !review) notices.push({ type: "", text: "鎵€鏈夌洰鏍囨椂娈靛潎璇嗗埆鍒拌嚦灏戜袱涓湁鏁堟€讳环銆備粛寤鸿瀵圭収鎴浘瀹屾垚鏈€缁堟牳楠屻€? });
       noticeStack.innerHTML = notices.map(item => `<div class="notice ${item.type}">${escapeHtml(item.text)}</div>`).join("");
     }
 
     function renderAudit() {
       if (!parsedSections.length) {
-        auditBody.innerHTML = `<div class="audit-item">没有可展示的识别记录。</div>`;
+        auditBody.innerHTML = `<div class="audit-item">娌℃湁鍙睍绀虹殑璇嗗埆璁板綍銆?/div>`;
         return;
       }
       auditBody.innerHTML = parsedSections.map(section => {
-        const groups = section.groups.length ? section.groups.map(group => `${group.source || "价格组"}｜${group.label}：${group.prices.map(v => Number(v).toFixed(4)).join(" / ")}`).join("；") : "未识别到价格组";
-        const duplicate = section.duplicates > 1 ? `；重复出现 ${section.duplicates} 次，已合并` : "";
-        return `<div class="audit-item"><strong class="mono">${escapeHtml(section.label)}</strong>｜候选总价：<span class="mono">${section.prices.map(v => v.toFixed(4)).join(" / ") || "无"}</span>${escapeHtml(duplicate)}<br>${escapeHtml(groups)}</div>`;
+        const groups = section.groups.length ? section.groups.map(group => `${group.source || "浠锋牸缁?}锝?{group.label}锛?{group.prices.map(v => Number(v).toFixed(4)).join(" / ")}`).join("锛?) : "鏈瘑鍒埌浠锋牸缁?;
+        const duplicate = section.duplicates > 1 ? `锛涢噸澶嶅嚭鐜?${section.duplicates} 娆★紝宸插悎骞禶 : "";
+        return `<div class="audit-item"><strong class="mono">${escapeHtml(section.label)}</strong>锝滃€欓€夋€讳环锛?span class="mono">${section.prices.map(v => v.toFixed(4)).join(" / ") || "鏃?}</span>${escapeHtml(duplicate)}<br>${escapeHtml(groups)}</div>`;
       }).join("");
     }
 
@@ -1162,20 +1372,20 @@
     function updateCopyPreview() {
       const rows = orderedSelectedRows();
       const values = selectedValues();
-      const labels = rows.flatMap(row => [`${row.period.name}非会员`, `${row.period.name}会员`]);
+      const labels = rows.flatMap(row => [`${row.period.name}闈炰細鍛榒, `${row.period.name}浼氬憳`]);
       const columnCount = Math.max(labels.length, 1);
       copyLabels.style.setProperty("--copy-count", columnCount);
       copyPreview.style.setProperty("--copy-count", columnCount);
       copyLabels.innerHTML = labels.map(label => `<span>${escapeHtml(label)}</span>`).join("");
       copyPreview.innerHTML = values.length
-        ? values.map(value => `<span>${escapeHtml(value || "待补")}</span>`).join("")
-        : `<span>未选择任何时段</span>`;
+        ? values.map(value => `<span>${escapeHtml(value || "寰呰ˉ")}</span>`).join("")
+        : `<span>鏈€夋嫨浠讳綍鏃舵</span>`;
       orderEditor.innerHTML = rows.length
         ? rows.map(row => {
             const id = periodId(row.period);
-            return `<span class="order-pill"><span>${escapeHtml(row.period.name)} ${row.period.start}-${row.period.end}</span><button type="button" data-move="-1" data-period-id="${escapeHtml(id)}" aria-label="向前移动">‹</button><button type="button" data-move="1" data-period-id="${escapeHtml(id)}" aria-label="向后移动">›</button></span>`;
+            return `<span class="order-pill"><span>${escapeHtml(row.period.name)} ${row.period.start}-${row.period.end}</span><button type="button" data-move="-1" data-period-id="${escapeHtml(id)}" aria-label="鍚戝墠绉诲姩">鈥?/button><button type="button" data-move="1" data-period-id="${escapeHtml(id)}" aria-label="鍚戝悗绉诲姩">鈥?/button></span>`;
           }).join("")
-        : `<span class="panel-kicker">请先勾选需要复制的时段</span>`;
+        : `<span class="panel-kicker">璇峰厛鍕鹃€夐渶瑕佸鍒剁殑鏃舵</span>`;
       orderEditor.querySelectorAll("button[data-move]").forEach(button => button.addEventListener("click", () => moveCopyPeriod(button.dataset.periodId, Number(button.dataset.move))));
     }
 
@@ -1193,7 +1403,7 @@
         helper.remove();
       }
       const original = document.getElementById("copyBtn").textContent;
-      document.getElementById("copyBtn").textContent = "已复制";
+      document.getElementById("copyBtn").textContent = "宸插鍒?;
       setTimeout(() => document.getElementById("copyBtn").textContent = original, 1200);
     }
 
@@ -1203,6 +1413,18 @@
       if (rawInput.value.trim()) analyse(); else renderEmptyRows();
     });
     effectiveMonth.addEventListener("change", () => { persistGeneralPreferences(); renderSchedule(); });
+    // INTERNAL_SAMPLE_UNLOCK_START
+    document.getElementById("unlockSamplesBtn").addEventListener("click", () => {
+      const key = window.prompt("璇疯緭鍏ュ唴閮ㄦ牱渚嬪瘑閽?);
+      if (key === INTERNAL_SAMPLE_KEY) {
+        document.getElementById("sampleLock").hidden = true;
+        document.getElementById("sampleTools").hidden = false;
+      } else if (key !== null) {
+        window.alert("瀵嗛挜涓嶆纭?);
+      }
+    });
+    // INTERNAL_SAMPLE_UNLOCK_END
+    document.getElementById("loadSampleBtn").addEventListener("click", () => { rawInput.value = SAMPLES[sampleSelect.value]; analyse(); });
     document.getElementById("analyseBtn").addEventListener("click", analyse);
     document.getElementById("resetResultBtn").addEventListener("click", analyse);
     document.getElementById("clearBtn").addEventListener("click", () => { rawInput.value = ""; renderEmptyRows(); });
