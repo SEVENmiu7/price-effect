@@ -533,4 +533,3 @@ if (storedPreferences.effectiveMonth && !startupParams.get("month")) effectiveMo
 if (startupParams.get("month")) effectiveMonth.value = startupParams.get("month");
 renderSchedule();
 renderEmptyRows();
-
