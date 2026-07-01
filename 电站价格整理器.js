@@ -558,6 +558,13 @@ persistGeneralPreferences();
 renderSchedule();
 if (rawInput.value.trim()) analyse(); else renderEmptyRows();
 });
+document.querySelector(".region-control").addEventListener("click", event => {
+if (event.target === regionSelect) return;
+try { regionSelect.showPicker?.(); } catch { regionSelect.focus(); }
+});
+document.querySelector(".month-control").addEventListener("click", () => {
+try { effectiveMonth.showPicker?.(); } catch { effectiveMonth.focus(); }
+});
 effectiveMonth.addEventListener("change", () => { persistGeneralPreferences(); renderSchedule(); renderDashboardSummary(); });
 document.getElementById("unlockSamplesBtn").addEventListener("click", () => {
 const key = window.prompt("请输入内部样例密钥");
