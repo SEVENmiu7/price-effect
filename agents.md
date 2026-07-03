@@ -2,35 +2,41 @@
 
 ## Project Structure & Module Organization
 
-This repository contains a dependency-free, local single-page tool for converting PixPin OCR text into normalized charging-price rows.
+This dependency-free single-page tool converts PixPin OCR text into normalized charging-price rows.
 
 - `index.html` is the deployment entry point.
 - `电站价格整理器.html` is the named local entry point and should remain aligned with `index.html` when markup changes.
-- `电站价格整理器.js` contains OCR parsing, time-period matching, price selection, review, copy, and export behavior.
-- `电站价格整理器.css` contains all presentation and responsive styles.
-- `备份/` stores dated reference snapshots and notes. Treat these as historical artifacts; do not implement active changes there.
+- `电站价格整理器.js` contains parsing, time matching, price selection, review, copy, and export logic.
+- `电站价格整理器.css` contains presentation and responsive styles.
+- `备份/` stores dated snapshots. Do not implement active changes there.
 
 Keep the application offline-capable: do not introduce CDN assets, server APIs, or a build-time dependency without explicit agreement.
 
+## Backups Before Major Changes
+
+Before a substantial code or webpage change, create a restorable snapshot under `备份/`. This includes parser rewrites, broad UI/layout or data-flow changes, restructuring, and multi-file edits. Small copy or isolated style fixes need no snapshot.
+
+Back up before editing. Use a unique dated directory such as `备份/2026-07-03-价格解析重构前/` and copy every affected active HTML, CSS, and JS file. Add a short Markdown note if the restore point is unclear. Never overwrite or edit a snapshot. Verify its files before continuing.
+
 ## Build, Test, and Development Commands
 
-There is no package manager or build step. Open `index.html` or `电站价格整理器.html` directly in a modern browser for local development. A local server is optional:
+There is no build step. Open either HTML entry directly, or run:
 
 ```powershell
 python -m http.server 8000
 ```
 
-Then visit `http://localhost:8000/`. Before committing, inspect changes with `git diff --check` and `git diff`.
+Visit `http://localhost:8000/`. Before committing, run `git diff --check` and inspect `git diff`.
 
 ## Coding Style & Naming Conventions
 
-Preserve the existing plain HTML/CSS/JavaScript architecture. Use two-space indentation for new readable blocks, semicolons in JavaScript, `camelCase` for variables and functions, and `UPPER_SNAKE_CASE` for fixed configuration constants. Reuse existing CSS class patterns and `data-testid` attributes. Keep user-facing copy in concise Chinese and save files as UTF-8.
+Preserve plain HTML/CSS/JavaScript. Use two-space indentation, JavaScript semicolons, `camelCase` variables/functions, and `UPPER_SNAKE_CASE` constants. Reuse CSS class patterns and `data-testid` attributes. Keep UI copy concise and files UTF-8.
 
 Parsing changes must model time blocks and price groups explicitly. Never classify electricity fees, service fees, discounts, or subsidies as final member/non-member totals.
 
 ## Testing Guidelines
 
-No automated test framework is currently configured. Manually run every built-in and historical regression sample after parser changes, including formula totals, cross-period ranges, pre/post-period price groups, and repeated label templates such as `华自价 + VIP价`. Verify the six copied fields in this order: 晚谷非会员、晚谷会员、中谷非会员、中谷会员、平非会员、平会员. Also confirm single-price periods show a prominent manual-review warning.
+No test framework is configured. After parser changes, run every built-in and historical sample, including formula totals, cross-period ranges, mixed price groups, and repeated labels such as `华自价 + VIP价`. Verify this copy order: 晚谷非会员、晚谷会员、中谷非会员、中谷会员、平非会员、平会员. Single-price periods must show a manual-review warning.
 
 ## Commit & Pull Request Guidelines
 
