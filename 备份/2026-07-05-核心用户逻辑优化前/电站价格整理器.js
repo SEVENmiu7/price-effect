@@ -217,8 +217,6 @@ YKC价
 0.2610
 0.2505最高优惠5元`};const INTERNAL_SAMPLE_KEY="didichangsha";const regionSelect=document.getElementById("regionSelect");const effectiveMonth=document.getElementById("effectiveMonth");const rawInput=document.getElementById("rawInput");const sampleSelect=document.getElementById("sampleSelect");const resultBody=document.getElementById("resultBody");const noticeStack=document.getElementById("noticeStack");const copyPreview=document.getElementById("copyPreview");const copyLabels=document.getElementById("copyLabels");const auditBody=document.getElementById("auditBody");const commonOnlyToggle=document.getElementById("commonOnlyToggle");const commonModal=document.getElementById("commonModal");const copyModal=document.getElementById("copyModal");const modalOverlay=document.getElementById("modalOverlay");const rulePopover=document.getElementById("rulePopover");const helpDrawer=document.getElementById("helpDrawer");let resultRows=[];let parsedSections=[];const STORAGE_KEY="price-workbench-team-v02";const regionSelectionState={};let copyDraft=null;const HELP_SECTIONS=[{id:"basic",badge:"A",title:"基础设置",summary:"地区和月份：选择对应的时段配置",body:`<ul><li>全天时段：查看当天完整的峰谷划分</li><li>粘贴查价文本：怎样保留有效内容</li></ul>`},{id:"rules",badge:"B",title:"规则与常用设置",summary:"常用时段：保存、重新设置和清除",body:`<ul><li>价格如何选取：会员价和非会员价的规则</li></ul>`},{id:"output",badge:"C",title:"核对与输出",summary:"修改与复制：调整价格和输出顺序",body:`<ul><li>查看识别明细：检查截图时段和原始价格</li></ul>`}];function periodId(period){return`${period.start}-${period.end}|${period.name}`;}function readPreferences(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}")||{};}catch{return{};}}function writePreferences(value){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(value));}catch{/*本地存储不可用时仍可单次使用*/}}const storedPreferences=readPreferences();function validPeriodIds(regionKey){return new Set(REGION_CONFIGS[regionKey].periods.map(periodId));}function getRegionSelection(regionKey=regionSelect.value){if(regionSelectionState[regionKey])return regionSelectionState[regionKey];const config=REGION_CONFIGS[regionKey];const valid=validPeriodIds(regionKey);const saved=storedPreferences.regions?.[regionKey];const savedSelected=Array.isArray(saved?.selected)?saved.selected.filter(id=>valid.has(id)):[];const savedOrder=Array.isArray(saved?.order)?saved.order.filter(id=>valid.has(id)):[];const selected=savedSelected.length?savedSelected:[...config.defaultOrder];const order=[...savedOrder.filter(id=>selected.includes(id)),...selected.filter(id=>!savedOrder.includes(id))];regionSelectionState[regionKey]={selected,order,hasCustom:Boolean(saved),showCommonOnly:saved?saved.showCommonOnly!==false:false,priceOrder:saved?.priceOrder==="member-first"?"member-first":"nonmember-first"};return regionSelectionState[regionKey];}function persistGeneralPreferences(){const next=readPreferences();next.lastRegion=regionSelect.value;next.effectiveMonth=effectiveMonth.value;writePreferences(next);}function persistRegionState(regionKey=regionSelect.value){const next=readPreferences();const state=getRegionSelection(regionKey);next.lastRegion=regionKey;next.effectiveMonth=effectiveMonth.value;next.regions=next.regions||{};next.regions[regionKey]={selected:[...state.selected],order:[...state.order],showCommonOnly:state.showCommonOnly,priceOrder:state.priceOrder};writePreferences(next);}function saveCurrentPreference(){const checked=[...document.querySelectorAll('#commonPeriodChoices input[type="checkbox"]:checked')].map(input=>input.value);if(!checked.length){window.alert("请至少选择一个常用时段");return;}const state=getRegionSelection();state.selected=checked;state.order=[...state.order.filter(id=>checked.includes(id)),...checked.filter(id=>!state.order.includes(id))];state.hasCustom=true;state.showCommonOnly=true;resultRows.forEach(row=>{row.selected=checked.includes(periodId(row.period));});persistRegionState();closeLayers();renderResults();noticeStack.insertAdjacentHTML("afterbegin",`<div class="notice">已保存 ${REGION_CONFIGS[regionSelect.value].name} 的常用时段。新文本会继续使用此设置。</div>`);}function restoreRegionPreset(){const config=REGION_CONFIGS[regionSelect.value];const current=getRegionSelection();regionSelectionState[regionSelect.value]={selected:[...config.defaultOrder],order:[...config.defaultOrder],hasCustom:true,showCommonOnly:true,priceOrder:current.priceOrder};resultRows.forEach(row=>{row.selected=config.defaultOrder.includes(periodId(row.period));});persistRegionState();renderCommonChoices();renderResults();}function clearPersonalPreference(){const config=REGION_CONFIGS[regionSelect.value];const current=getRegionSelection();regionSelectionState[regionSelect.value]={selected:[...config.defaultOrder],order:[...config.defaultOrder],hasCustom:false,showCommonOnly:false,priceOrder:current.priceOrder};const next=readPreferences();if(next.regions)delete next.regions[regionSelect.value];writePreferences(next);resultRows.forEach(row=>{row.selected=config.defaultOrder.includes(periodId(row.period));});closeLayers();renderResults();noticeStack.insertAdjacentHTML("afterbegin",`<div class="notice">已清除个人设置，当前显示 ${config.name} 的全部时段。</div>`);}function toMin(text){const[h,m]=text.split(":").map(Number);return h*60+m;}function normalizeRawText(text){return String(text||"").replace(/\r/g,"\n").replace(/：/g,":").replace(/[～~—–至]/g,"-").replace(/(\d{1,2}:\d{2})\s*\n\s*-\s*\n?\s*(\d{1,2}:\d{2})/g,"$1-$2").replace(/(\d{1,2}:\d{2})\s*-\s*\n\s*(\d{1,2}:\d{2})/g,"$1-$2");}function normTime(text){const normalized=String(text||"").replace(/：/g,":").replace(/[～~—–至]/g,"-");const match=normalized.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);if(!match)return null;const startH=Number(match[1]);const startM=Number(match[2]);const endH=Number(match[3]);const endM=Number(match[4]);if(startH>24||endH>24||startM>59||endM>59)return null;const start=startH*60+startM;let end=endH*60+endM;if(endM===59)end+=1;if(end===0&&start>0)end=1440;return{start,end,label:`${String(startH).padStart(2, "0")}:${String(startM).padStart(2, "0")}-${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`};}function getPositiveNumbers(line,minValue=0.1){if(normTime(line))return[];return[...String(line).matchAll(/(?<![-－])\b\d+(?:\.\d{1,4})\b/g)].map(match=>Number(match[0])).filter(value=>value>=minValue&&value<=3);}function isNumericOnlyLine(line){const normalized=String(line).replace(/[元度\s/]/g,"");return/^\d+(?:\.\d{1,4})$/.test(normalized);}function isIgnoreLabel(line){return/电费|服务费|优惠金额|最高优惠|立减|已减|已降|补贴|省\d|当前时间|更新时间/.test(line);}function isPriceLabel(line){if(isIgnoreLabel(line)||normTime(line))return false;return/会员|VIP|黑钻|优惠价|挂牌价|电站价|站点价|快电价|闪联价|华自价|YKC价|原价|折扣价|专享|活动价|充电单价|当前价|收费金额/.test(line);}function nearlyEqual(a,b){return Math.abs(a-b)<0.0003;}function formulaTotal(window){if(window.length===3){if(nearlyEqual(window[0]+window[1],window[2]))return window[2];if(nearlyEqual(window[1]+window[2],window[0]))return window[0];if(nearlyEqual(window[0]+window[2],window[1]))return window[1];}if(window.length===4){if(nearlyEqual(window[0]+window[1]-window[2],window[3]))return window[3];if(nearlyEqual(window[1]+window[2]-window[3],window[0]))return window[0];}return null;}function normalizePriceCandidates(prices){const normalized=[];let i=0;while(i<prices.length){if(i+3<prices.length){const total=formulaTotal(prices.slice(i,i+4));if(total!==null){normalized.push(total);i+=4;continue;}}if(i+2<prices.length){const total=formulaTotal(prices.slice(i,i+3));if(total!==null){normalized.push(total);i+=3;continue;}}normalized.push(prices[i]);i++;}return normalized.filter(price=>price>=0.25&&price<=3);}function collectGroupNumbers(lines,startIndex){const prices=[];let endIndex=startIndex;for(let i=startIndex;i<lines.length;i++){if(normTime(lines[i])||(i!==startIndex&&(isPriceLabel(lines[i])||isIgnoreLabel(lines[i]))))break;const nums=getPositiveNumbers(lines[i]);if(nums.length)prices.push(...nums);endIndex=i;}return{endIndex,prices:normalizePriceCandidates(prices)};}function parsePriceGroups(lines){const groups=[];let i=0;while(i<lines.length){if(normTime(lines[i])){i++;continue;}if(isIgnoreLabel(lines[i])){i++;while(i<lines.length&&!normTime(lines[i])&&!isPriceLabel(lines[i]))i++;continue;}if(isPriceLabel(lines[i])){const sameLine=getPositiveNumbers(lines[i]);const collected=collectGroupNumbers(lines,i+1);const prices=normalizePriceCandidates([...sameLine,...collected.prices]);if(prices.length){groups.push({label:lines[i],start:i,end:collected.endIndex,prices});}else{let timeIndex=-1;for(let j=i+1;j<lines.length;j++){if(isPriceLabel(lines[j]))break;if(normTime(lines[j])){timeIndex=j;break;}}if(timeIndex!==-1){const afterTime=collectGroupNumbers(lines,timeIndex+1);if(afterTime.prices.length){groups.push({label:lines[i],start:timeIndex+1,end:afterTime.endIndex,prices:afterTime.prices});i=Math.max(afterTime.endIndex+1,i+1);continue;}}}i=Math.max(collected.endIndex+1,i+1);continue;}if(getPositiveNumbers(lines[i]).length){const collected=collectGroupNumbers(lines,i);if(collected.prices.length)groups.push({label:"未标注价格组",start:i,end:collected.endIndex,prices:collected.prices});i=collected.endIndex+1;continue;}i++;}return groups;}function isUnlabeledGroup(group){return!group.label||group.label.includes("未标注");}function normalizeLabel(label){return String(label||"").replace(/\s+/g,"").trim();}const UNLABELED_TEMPLATE="__UNLABELED__";function previousTimeForGroup(timeItems,position){let result=null;for(const item of timeItems){if(item.index<position)result=item;else break;}return result;}function nextTimeForGroup(timeItems,position){return timeItems.find(item=>item.index>position)||null;}function hasLeadingUnlabeledGroups(timeItems,groups){return timeItems.some(timeItem=>groups.some(group=>isUnlabeledGroup(group)&&group.start>timeItem.index&&group.start-timeItem.index<=3));}function inferLabelTemplate(groups,timeItems){const labels=groups.filter(group=>!isUnlabeledGroup(group)).map(group=>normalizeLabel(group.label));const hasLeadingUnlabeled=hasLeadingUnlabeledGroups(timeItems,groups);const uniqueLabels=[...new Set(labels)];if(hasLeadingUnlabeled&&uniqueLabels.length===1&&labels.length>=2)return[UNLABELED_TEMPLATE,uniqueLabels[0]];if(labels.length<4)return[];for(let size=2;size<=Math.min(4,Math.floor(labels.length/2));size++){const template=labels.slice(0,size);if(new Set(template).size!==template.length)continue;let matches=0;for(let i=0;i<labels.length;i++)if(labels[i]===template[i%size])matches++;if(matches/labels.length>=.75)return hasLeadingUnlabeled?[UNLABELED_TEMPLATE,...template]:template;}return[];}function labelIndexInTemplate(group,template){if(isUnlabeledGroup(group))return template.findIndex(item=>item===UNLABELED_TEMPLATE);return template.findIndex(item=>item===normalizeLabel(group.label));}function assignGroupsByTemplate(timeItems,groups,template){const byTimeIndex=new Map(timeItems.map(item=>[item.index,[]]));const used=new Set();for(let t=0;t<timeItems.length;t++){const prevTimeIndex=t?timeItems[t-1].index:-1;const current=timeItems[t];const nextTimeIndex=t<timeItems.length-1?timeItems[t+1].index:Infinity;const selected=[];const selectedLabels=new Set();const tryTake=(group,source)=>{const templateIndex=labelIndexInTemplate(group,template);if(templateIndex===-1||selectedLabels.has(templateIndex)||used.has(group))return false;selected.push({...group,source});selectedLabels.add(templateIndex);used.add(group);return selectedLabels.size===template.length;};const beforeGroups=groups.filter(group=>!used.has(group)&&!isUnlabeledGroup(group)&&group.start>prevTimeIndex&&group.end<current.index);for(const group of beforeGroups)if(tryTake(group,"前置价格组"))break;const afterGroups=groups.filter(group=>!used.has(group)&&!isUnlabeledGroup(group)&&group.start>current.index&&group.start<nextTimeIndex);for(const group of afterGroups)if(tryTake(group,"后置价格组"))break;if(selected.length)byTimeIndex.set(current.index,selected);}return{byTimeIndex,used};}function assignGroupsToSections(timeItems,groups){const template=inferLabelTemplate(groups,timeItems);if(template.length){const templated=assignGroupsByTemplate(timeItems,groups,template);for(const group of groups){if(templated.used.has(group)||!isUnlabeledGroup(group))continue;const owner=previousTimeForGroup(timeItems,group.start)||nextTimeForGroup(timeItems,group.end);if(owner&&!(templated.byTimeIndex.get(owner.index)||[]).length)templated.byTimeIndex.get(owner.index).push({...group,source:"未标注价格组"});}templated.byTimeIndex.template=template;return templated.byTimeIndex;}const byTimeIndex=new Map(timeItems.map(item=>[item.index,[]]));for(const group of groups){const prev=previousTimeForGroup(timeItems,group.start);const next=nextTimeForGroup(timeItems,group.end);let owner=prev||next;if(prev&&next){const prevDistance=group.start-prev.index;const nextDistance=next.index-group.end;owner=prevDistance<=2?prev:(nextDistance<prevDistance?next:prev);}if(owner)byTimeIndex.get(owner.index).push({...group,source:prev&&next&&owner===next?"前置价格组":"后置价格组"});}return byTimeIndex;}function uniqueSorted(prices){return[...new Set(prices.map(price=>Number(price).toFixed(4)))].map(Number).sort((a,b)=>a-b);}function parseSections(text){const lines=normalizeRawText(text).split("\n").map(line=>line.trim()).filter(Boolean);const timeItems=[];lines.forEach((line,index)=>{const time=normTime(line);if(time)timeItems.push({index,...time});});const groups=parsePriceGroups(lines);const groupsByTime=assignGroupsToSections(timeItems,groups);const sections=timeItems.map((timeItem,pos)=>{const nextTimeIndex=pos<timeItems.length-1?timeItems[pos+1].index:lines.length;const sectionGroups=groupsByTime.get(timeItem.index)||[];return{...timeItem,prices:uniqueSorted(sectionGroups.flatMap(group=>group.prices)),groups:sectionGroups,raw:lines.slice(timeItem.index,nextTimeIndex)};});const merged=new Map();for(const section of sections){const key=`${section.start}-${section.end}`;if(!merged.has(key))merged.set(key,{...section,duplicates:1});else{const current=merged.get(key);current.duplicates+=1;current.prices=uniqueSorted([...current.prices,...section.prices]);current.groups.push(...section.groups);}}return[...merged.values()];}function chooseForTarget(sections,target){const start=toMin(target.start);const end=toMin(target.end);const matched=sections.filter(section=>section.end>start&&section.start<end);const available=matched.map(section=>({section,prices:uniqueSorted(section.prices)})).filter(item=>item.prices.length);if(!available.length)return{member:"",nonMember:"",matched,available,status:"missing",note:"未识别到有效总价"};let best=available[0];for(const item of available)if(item.prices[0]<best.prices[0])best=item;const member=best.prices[0];const nonMember=best.prices.length===1?member:best.prices[1];const status=best.prices.length===1||matched.length>1?"review":"ok";const notes=[];if(best.prices.length===1)notes.push("只有一个总价，已按同价处理");if(matched.length>1)notes.push("命中多个实际时段，取最低会员价所在价格组");if(!notes.length)notes.push("已取最低两个有效总价");return{member,nonMember,matched,available,best,status,note:notes.join("；")};}function escapeHtml(value){return String(value??"").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 }
-let hasAnalysed = false;
-let problemMode = false;
 function svgIcon(name, className = "icon") {
 return `<svg class="${className}" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
 }
@@ -233,8 +231,7 @@ const match = String(value || "").match(/^(\d{4})-(\d{2})$/);
 return match ? `${match[1]}年${match[2]}月` : "未设置";
 }
 function rowDisplayStatus(row) {
-if (row.member === "" || row.nonMember === "") return "missing";
-if (row.edited) return "ok";
+if (row.edited && row.member !== "" && row.nonMember !== "") return "ok";
 return row.status;
 }
 function renderDashboardSummary() {
@@ -262,7 +259,7 @@ document.getElementById("memberInfo").textContent = missingMembers ? `${missingM
 document.getElementById("effectiveMonthInfo").textContent = `生效月份：${formatMonthLabel(effectiveMonth.value)}`;
 document.getElementById("regionInfo").textContent = `地区：${REGION_CONFIGS[regionSelect.value].name}`;
 document.getElementById("resultSummary").textContent = parsedSections.length
-? `已识别 ${parsedSections.length} 个截图时段，需核对 ${review + missing} 项`
+? `已识别 ${parsedSections.length} 个截图时段，待复核 ${review + missing} 项`
 : `已载入 ${total} 个时段，等待整理`;
 }
 function renderSchedule() {
@@ -282,12 +279,9 @@ if (!resultRows.length) renderEmptyRows();
 function renderEmptyRows() {
 const config = REGION_CONFIGS[regionSelect.value];
 const selection = getRegionSelection();
-hasAnalysed = false;
-problemMode = false;
 resultRows = config.periods.map((period, index) => ({ index, period, selected: selection.selected.includes(periodId(period)), member: "", nonMember: "", matched: [], available: [], status: "missing", note: "等待识别", edited: false }));
 parsedSections = [];
 renderResults();
-renderAudit();
 noticeStack.innerHTML = `<div class="notice">已载入 ${config.name} ${config.periods.length} 个全天时段。粘贴 OCR 文本后点击“整理价格”。</div>`;
 }
 function analyse() {
@@ -298,8 +292,6 @@ noticeStack.innerHTML = `<div class="notice danger">请先粘贴 OCR 文本，�
 return;
 }
 parsedSections = parseSections(text);
-hasAnalysed = true;
-problemMode = false;
 const config = REGION_CONFIGS[regionSelect.value];
 const selection = getRegionSelection();
 resultRows = config.periods.map((period, index) => ({ index, period, selected: selection.selected.includes(periodId(period)), edited: false, ...chooseForTarget(parsedSections, period) }));
@@ -309,34 +301,26 @@ renderAudit();
 }
 function renderResults() {
 const state = getRegionSelection();
-const problemRows = hasAnalysed ? resultRows.filter(row => rowDisplayStatus(row) !== "ok") : [];
-if (problemMode && !problemRows.length) problemMode = false;
-const visibleRows = problemMode ? problemRows : (state.showCommonOnly ? resultRows.filter(row => row.selected) : resultRows);
+const visibleRows = state.showCommonOnly ? resultRows.filter(row => row.selected) : resultRows;
 resultBody.innerHTML = visibleRows.map(row => {
 const matched = row.matched.length ? row.matched.map(item => item.label).join("、") : "—";
 const candidates = row.available.length ? uniqueSorted(row.available.flatMap(item => item.prices)).map(v => v.toFixed(4)).join("/") : "—";
-const displayStatus = rowDisplayStatus(row);
-const isProblem = hasAnalysed && displayStatus !== "ok";
-const statusClass = row.edited && !isProblem ? "manual" : displayStatus;
-const statusText = row.edited && !isProblem ? "人工修改" : ({ ok: "已识别", review: "需核对", missing: "缺失" }[displayStatus] || "待处理");
-const reason = displayStatus === "review"
-? (row.note.includes("只有一个") ? "仅识别到一个价格，请对照原始文本确认。" : "识别到多个可能价格，请对照原始文本确认。")
-: "未识别到该时段价格，请手动补充。";
-return `<tr data-row-index="${row.index}" data-period-id="${escapeHtml(periodId(row.period))}" class="${row.edited?"edited ":""}${isProblem?`issue-row issue-${displayStatus}`:""}">
+const statusClass = row.edited ? "manual" : row.status;
+const statusText = row.edited ? "人工修改" : ({ ok: "已识别", review: "需核对", missing: "缺失" }[row.status] || "待处理");
+return `<tr data-row-index="${row.index}" data-period-id="${escapeHtml(periodId(row.period))}" class="${row.edited?"edited":""}${row.status==="missing"?"error-row":""}">
 <td><div class="row-control"><span class="row-number">${row.index + 1}</span><input type="checkbox" class="row-select" ${row.selected ? "checked" : ""} aria-label="选择${escapeHtml(row.period.name)}${row.period.start}-${row.period.end}"></div></td>
 <td class="period-cell"><strong><span class="period-glyph tone-${row.period.tone}">${svgIcon(periodIconName(row.period), "icon icon-sm")}</span>${escapeHtml(row.period.name)}</strong><span>${row.period.start}—${row.period.end}</span></td>
 <td class="source-cell mono">${row.period.start}—${row.period.end}</td>
 <td class="source-cell mono" title="${escapeHtml(matched)}｜${escapeHtml(candidates)}">${escapeHtml(candidates)}</td>
 <td><input class="price-input" data-kind="nonMember" inputmode="decimal" value="${row.nonMember!==""?Number(row.nonMember).toFixed(4):""}" aria-label="${escapeHtml(row.period.name)}非会员价"></td>
 <td><input class="price-input" data-kind="member" inputmode="decimal" value="${row.member!==""?Number(row.member).toFixed(4):""}" aria-label="${escapeHtml(row.period.name)}会员价"></td>
-<td><span class="status ${statusClass}" title="${escapeHtml(row.note)}">${statusText}</span>${isProblem?`<span class="issue-reason">${escapeHtml(reason)}</span>`:""}</td>
+<td><span class="status ${statusClass}" title="${escapeHtml(row.note)}">${statusText}</span></td>
 </tr>`;
 }).join("");
 bindResultEvents();
 updateCopyPreview();
 renderVisibilityControls();
 renderDashboardSummary();
-updateIssueControls();
 }
 function bindResultEvents() {
 resultBody.querySelectorAll("tr").forEach(tr => {
@@ -361,34 +345,33 @@ row[event.target.dataset.kind] = event.target.value.trim();
 row.edited = true;
 tr.classList.add("edited");
 const chip = tr.querySelector(".status");
-const displayStatus = rowDisplayStatus(row);
-chip.className = `status ${displayStatus === "ok" ? "manual" : displayStatus}`;
-chip.textContent = displayStatus === "ok" ? "人工修改" : (displayStatus === "review" ? "需核对" : "缺失");
+chip.className = "status manual";
+chip.textContent = "人工修改";
 updateCopyPreview();
 renderDashboardSummary();
-updateIssueControls();
-renderNotices();
-}));
-tr.querySelectorAll(".price-input").forEach(input => input.addEventListener("change", () => {
-renderResults();
 }));
 });
 }
 function renderNotices() {
 const notices = [];
 if (!parsedSections.length) notices.push({ type: "danger", text: "没有识别到时段，请检查OCR文本中的时间格式。" });
-const missing = resultRows.filter(row => rowDisplayStatus(row) === "missing").length;
-const review = resultRows.filter(row => rowDisplayStatus(row) === "review").length;
+const missing = resultRows.filter(row => row.status === "missing").length;
+const review = resultRows.filter(row => row.status === "review").length;
 if (missing) notices.push({ type: "danger", text: `${missing} 个时段没有识别到价格，请人工补录。` });
 if (review) notices.push({ type: "warn", text: `${review} 个时段需要核对，请对照截图后再复制。` });
 if (!missing && !review && parsedSections.length) notices.push({ type: "", text: `已整理 ${parsedSections.length} 个截图时段，请对照截图完成最终核对。` });
 noticeStack.innerHTML = notices.map(item => `<div class="notice ${item.type}">${escapeHtml(item.text)}</div>`).join("");
 }
 function renderAudit() {
-const text = rawInput.value.trim();
-auditBody.innerHTML = text
-? `<pre class="raw-text-content">${escapeHtml(text)}</pre>`
-: `<div class="raw-text-empty">粘贴文本后，这里显示原始内容。</div>`;
+if (!parsedSections.length) {
+auditBody.innerHTML = `<div class="audit-item">没有可展示的识别记录。</div>`;
+return;
+}
+auditBody.innerHTML = parsedSections.map(section => {
+const groups = section.groups.length ? section.groups.map(group => `${group.label}：${group.prices.map(v => Number(v).toFixed(4)).join("/")}`).join("；") : "未识别到原始价格";
+const duplicate = section.duplicates > 1 ? `；重复出现 ${section.duplicates} 次，已合并` : "";
+return `<div class="audit-item"><strong class="mono">截图时段 ${escapeHtml(section.label)}</strong>｜识别到的价格：<span class="mono">${section.prices.map(v => v.toFixed(4)).join("/") || "无"}</span>${escapeHtml(duplicate)}<br>原始价格：${escapeHtml(groups)}</div>`;
+}).join("");
 }
 function renderVisibilityControls() {
 const state = getRegionSelection();
@@ -401,38 +384,6 @@ document.getElementById("hiddenPeriodMeta").textContent = hiddenCount ? `已收�
 const expandButton = document.getElementById("expandHiddenBtn");
 expandButton.hidden = !hiddenCount;
 document.getElementById("expandHiddenText").textContent = `展开另外 ${hiddenCount} 个时段`;
-}
-function getProblemRows() {
-return hasAnalysed ? resultRows.filter(row => rowDisplayStatus(row) !== "ok") : [];
-}
-function updateIssueControls() {
-const issues = getProblemRows();
-const missing = issues.filter(row => rowDisplayStatus(row) === "missing").length;
-const review = issues.length - missing;
-const issueButton = document.getElementById("issueActionBtn");
-issueButton.hidden = !issues.length;
-issueButton.textContent = missing ? `处理 ${issues.length} 个问题` : `处理需核对项 ${review}`;
-const banner = document.getElementById("issueModeBanner");
-banner.hidden = !problemMode || !issues.length;
-document.getElementById("issueModeText").textContent = `共 ${issues.length} 项，请逐项检查后再复制。`;
-const copyButton = document.getElementById("copyBtn");
-copyButton.classList.toggle("primary", hasAnalysed && !issues.length);
-const previewNotice = document.getElementById("copyPreviewNotice");
-previewNotice.hidden = !hasAnalysed;
-previewNotice.classList.toggle("success", !issues.length);
-previewNotice.textContent = issues.length
-? "存在需核对项，建议处理后再复制。"
-: "所有时段已确认，可以复制结果。";
-}
-function enterProblemMode() {
-if (!getProblemRows().length) return;
-problemMode = true;
-renderResults();
-requestAnimationFrame(() => document.getElementById("issueModeBanner").scrollIntoView({ behavior: "smooth", block: "center" }));
-}
-function exitProblemMode() {
-problemMode = false;
-renderResults();
 }
 function renderCommonChoices() {
 const state = getRegionSelection();
@@ -454,30 +405,8 @@ const member = { label: `${row.period.name} · 会员`, value: row.member };
 const nonMember = { label: `${row.period.name} · 非会员`, value: row.nonMember };
 return priceOrder === "member-first" ? [member, nonMember] : [nonMember, member];
 }
-function previewData(rows, priceOrder) {
-const items = rows.flatMap(row => priceItems(row, priceOrder));
-return {
-labels: items.map(item => item.label),
-values: items.map(item => item.value === "" ? "" : Number(item.value).toFixed(4))
-};
-}
 function selectedValues() {
-return previewData(orderedSelectedRows(), getRegionSelection().priceOrder).values;
-}
-function isCustomCopyOrder(order, rows) {
-const selectedIds = rows.map(row => periodId(row.period));
-const defaults = REGION_CONFIGS[regionSelect.value].defaultOrder;
-const workingOrder = [...defaults.filter(id => selectedIds.includes(id)), ...selectedIds.filter(id => !defaults.includes(id))];
-return order.join("|") !== workingOrder.join("|");
-}
-function renderPreviewElements(labelsElement, valuesElement, data, emptyText) {
-const columnCount = Math.max(data.labels.length, 1);
-labelsElement.style.setProperty("--copy-count", columnCount);
-valuesElement.style.setProperty("--copy-count", columnCount);
-labelsElement.innerHTML = data.labels.map(label => `<span>${escapeHtml(label)}</span>`).join("");
-valuesElement.innerHTML = data.values.length
-? data.values.map(value => `<span class="${value === "" ? "empty-copy-value" : ""}">${escapeHtml(value)}</span>`).join("")
-: `<span class="copy-empty-state">${escapeHtml(emptyText)}</span>`;
+return orderedSelectedRows().flatMap(row => priceItems(row).map(item => item.value)).map(value => value === "" ? "" : Number(value).toFixed(4));
 }
 function moveCopyDraft(id, direction) {
 if (!copyDraft) return;
@@ -489,10 +418,17 @@ renderCopySettings();
 }
 function updateCopyPreview() {
 const rows = orderedSelectedRows();
+const values = selectedValues();
 const state = getRegionSelection();
-const data = hasAnalysed ? previewData(rows, state.priceOrder) : { labels: [], values: [] };
-renderPreviewElements(copyLabels, copyPreview, data, hasAnalysed ? "未选择任何时段" : "整理完成后，这里会显示可复制内容。");
-document.getElementById("copyRuleText").textContent = `${state.priceOrder === "member-first" ? "会员价" : "非会员价"}在前 · ${isCustomCopyOrder(state.order, rows) ? "自定义顺序" : "按工作顺序"}`;
+const labels = rows.flatMap(row => priceItems(row, state.priceOrder).map(item => item.label));
+const columnCount = Math.max(labels.length, 1);
+copyLabels.style.setProperty("--copy-count", columnCount);
+copyPreview.style.setProperty("--copy-count", columnCount);
+copyLabels.innerHTML = labels.map(label => `<span>${escapeHtml(label)}</span>`).join("");
+copyPreview.innerHTML = values.length
+? values.map(value => `<span>${escapeHtml(value || "待补")}</span>`).join("")
+: `<span>未选择任何时段</span>`;
+document.getElementById("copyRuleText").textContent = `${state.priceOrder === "member-first" ? "会员价" : "非会员价"}在前 · 按工作顺序`;
 }
 function renderCopySettings() {
 if (!copyDraft) return;
@@ -502,9 +438,6 @@ document.getElementById("copyOrderList").innerHTML = rows.length ? rows.map(row 
 const id = periodId(row.period);
 return `<div class="copy-order-item"><div><strong>${escapeHtml(row.period.name)}　${row.period.start}—${row.period.end}</strong><small>会员 ${row.member === "" ? "待补" : Number(row.member).toFixed(4)}　非会员 ${row.nonMember === "" ? "待补" : Number(row.nonMember).toFixed(4)}</small></div><div class="copy-order-arrows"><button type="button" data-copy-move="-1" data-period-id="${escapeHtml(id)}" aria-label="向前移动">↑</button><button type="button" data-copy-move="1" data-period-id="${escapeHtml(id)}" aria-label="向后移动">↓</button></div></div>`;
 }).join("") : `<div class="notice warn">请先设置至少一个常用时段。</div>`;
-const draftData = hasAnalysed ? previewData(rows, copyDraft.priceOrder) : { labels: [], values: [] };
-renderPreviewElements(document.getElementById("copyDraftLabels"), document.getElementById("copyDraftPreview"), draftData, hasAnalysed ? "未选择任何时段" : "整理完成后，这里会显示可复制内容。");
-document.getElementById("copyDraftRuleText").textContent = `${copyDraft.priceOrder === "member-first" ? "会员价" : "非会员价"}在前 · ${isCustomCopyOrder(copyDraft.order, rows) ? "自定义顺序" : "按工作顺序"}`;
 document.querySelectorAll("[data-copy-move]").forEach(button => button.addEventListener("click", () => moveCopyDraft(button.dataset.periodId, Number(button.dataset.copyMove))));
 }
 function openCopySettings() {
@@ -526,38 +459,17 @@ state.hasCustom = true;
 persistRegionState();
 closeLayers();
 updateCopyPreview();
-updateIssueControls();
 const gear = document.getElementById("copySettingsBtn");
 gear.classList.remove("sparkle");
 void gear.offsetWidth;
 gear.classList.add("sparkle");
 setTimeout(() => gear.classList.remove("sparkle"), 1500);
 }
-function positionRulePopover() {
-if (rulePopover.hidden) return;
-const buttonRect = document.getElementById("ruleBtn").getBoundingClientRect();
-const gap = 10;
-const edge = 12;
-const popoverWidth = rulePopover.offsetWidth;
-const popoverHeight = rulePopover.offsetHeight;
-let left = buttonRect.left;
-let top = buttonRect.bottom + gap;
-if (top + popoverHeight > window.innerHeight - edge && buttonRect.top - popoverHeight - gap >= edge) {
-top = buttonRect.top - popoverHeight - gap;
-}
-left = Math.min(left, window.innerWidth - popoverWidth - edge);
-left = Math.max(edge, left);
-top = Math.max(edge, Math.min(top, window.innerHeight - popoverHeight - edge));
-rulePopover.style.left = `${left}px`;
-rulePopover.style.top = `${top}px`;
-rulePopover.style.right = "auto";
-}
 function openLayer(element, withOverlay) {
 closeLayers();
 element.hidden = false;
 if (withOverlay) modalOverlay.hidden = false;
 document.body.style.overflow = withOverlay ? "hidden" : "";
-if (element === rulePopover) requestAnimationFrame(positionRulePopover);
 }
 function closeLayers() {
 [commonModal, copyModal, rulePopover, helpDrawer, modalOverlay].forEach(element => { element.hidden = true; });
@@ -580,13 +492,6 @@ document.getElementById("helpDrawerTitle").textContent = section.title;
 document.getElementById("helpDetailBody").innerHTML = `<h3>${escapeHtml(section.title)}</h3>${section.body}`;
 }
 async function copySelected() {
-if (!hasAnalysed) {
-const notice = document.getElementById("copyPreviewNotice");
-notice.hidden = false;
-notice.classList.remove("success");
-notice.textContent = "请先完成整理，再复制结果。";
-return;
-}
 const text = selectedValues().join("\t");
 if (!text) return;
 try {
@@ -629,6 +534,24 @@ link.click();
 URL.revokeObjectURL(link.href);
 link.remove();
 }
+function continueCheck() {
+const target = resultRows.find(row => rowDisplayStatus(row) !== "ok" || row.member === "" || row.nonMember === "");
+if (!target) {
+noticeStack.innerHTML = `<div class="notice">全部时段均已填写，请完成最后一次人工核对。</div>`;
+return;
+}
+const state = getRegionSelection();
+if (state.showCommonOnly && !target.selected) {
+state.showCommonOnly = false;
+renderResults();
+}
+requestAnimationFrame(() => {
+const row = resultBody.querySelector(`[data-row-index="${target.index}"]`);
+row?.scrollIntoView({ behavior: "smooth", block: "center" });
+const input = row?.querySelector(target.member === "" ? '[data-kind="member"]' : '[data-kind="nonMember"]');
+input?.focus();
+});
+}
 regionSelect.addEventListener("change", () => {
 closeLayers();
 persistGeneralPreferences();
@@ -656,15 +579,15 @@ document.getElementById("loadSampleBtn").addEventListener("click", () => { rawIn
 document.getElementById("analyseBtn").addEventListener("click", analyse);
 document.getElementById("resetResultBtn").addEventListener("click", analyse);
 document.getElementById("clearBtn").addEventListener("click", () => { rawInput.value = ""; updateInputCount(); renderEmptyRows(); });
-rawInput.addEventListener("input", () => { updateInputCount(); renderAudit(); });
+rawInput.addEventListener("input", updateInputCount);
 document.getElementById("detailJumpBtn").addEventListener("click", () => {
 const details = document.getElementById("auditDetails");
+details.open = true;
 details.scrollIntoView({ behavior: "smooth", block: "center" });
 });
 document.getElementById("addPeriodBtn").addEventListener("click", () => { renderCommonChoices(); openLayer(commonModal, true); });
 document.getElementById("exportExcelBtn").addEventListener("click", exportResults);
-document.getElementById("issueActionBtn").addEventListener("click", enterProblemMode);
-document.getElementById("showAllRowsBtn").addEventListener("click", exitProblemMode);
+document.getElementById("continueCheckBtn").addEventListener("click", continueCheck);
 commonOnlyToggle.addEventListener("change", () => {
 const state = getRegionSelection();
 state.showCommonOnly = commonOnlyToggle.checked;
@@ -698,11 +621,6 @@ document.getElementById("ruleBtn").addEventListener("click", () => {
 if (!rulePopover.hidden) closeLayers();
 else openLayer(rulePopover, false);
 });
-document.addEventListener("pointerdown", event => {
-if (!rulePopover.hidden && !rulePopover.contains(event.target) && !document.getElementById("ruleBtn").contains(event.target)) closeLayers();
-});
-window.addEventListener("resize", positionRulePopover);
-window.addEventListener("scroll", positionRulePopover, true);
 document.getElementById("helpBtn").addEventListener("click", () => {
 showHelpOverview();
 openLayer(helpDrawer, true);
