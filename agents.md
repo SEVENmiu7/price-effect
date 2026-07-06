@@ -5,13 +5,12 @@
 - `index.html` is the deployment entry point.
 - `电站价格整理器.html` is the local entry and should stay aligned with `index.html`.
 - `电站价格整理器.js` contains parsing and application behavior; `电站价格整理器.css` contains presentation.
-- `备份/` stores dated snapshots. Do not implement active changes there.
 
 Keep the application offline-capable; add no CDN, server API, or build dependency without agreement.
 
-## Backups Before Major Changes
+## Git Version Records
 
-Before parser rewrites, broad UI/data-flow changes, restructuring, or multi-file edits, create a restorable snapshot under `备份/`. Small copy or isolated style fixes need no snapshot. Back up every affected active HTML, CSS, and JS file before editing. Use a unique dated directory such as `备份/2026-07-03-价格解析重构前/`; never overwrite or edit it. Verify the snapshot before continuing.
+Use Git history instead of copied backup folders. Before substantial work, confirm the working tree state with `git status` and review pending changes so unrelated user work remains untouched. After each complete, verified change, create a focused commit with a short Chinese action-oriented subject, such as `修正跨时段价格归属`. Do not combine unrelated changes. Use a Git tag for important stable releases when a named restore point is useful. Never create manual source snapshots under the repository.
 
 ## Confirmation Before Complex Work
 
