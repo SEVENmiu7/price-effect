@@ -216,6 +216,109 @@ YKC价
 0.2610
 0.2610
 0.2505最高优惠5元`};const INTERNAL_SAMPLE_KEY="didichangsha";const regionSelect=document.getElementById("regionSelect");const effectiveMonth=document.getElementById("effectiveMonth");const rawInput=document.getElementById("rawInput");const sampleSelect=document.getElementById("sampleSelect");const resultBody=document.getElementById("resultBody");const noticeStack=document.getElementById("noticeStack");const copyPreview=document.getElementById("copyPreview");const copyLabels=document.getElementById("copyLabels");const auditBody=document.getElementById("auditBody");const commonOnlyToggle=document.getElementById("commonOnlyToggle");const commonModal=document.getElementById("commonModal");const copyModal=document.getElementById("copyModal");const modalOverlay=document.getElementById("modalOverlay");const rulePopover=document.getElementById("rulePopover");const helpDrawer=document.getElementById("helpDrawer");let resultRows=[];let parsedSections=[];const STORAGE_KEY="price-workbench-team-v02";const regionSelectionState={};let copyDraft=null;const HELP_SECTIONS=[{id:"basic",badge:"A",title:"基础设置",summary:"地区和月份：选择对应的时段配置",body:`<ul><li>全天时段：查看当天完整的峰谷划分</li><li>粘贴查价文本：怎样保留有效内容</li></ul>`},{id:"rules",badge:"B",title:"规则与常用设置",summary:"常用时段：保存、重新设置和清除",body:`<ul><li>价格如何选取：会员价和非会员价的规则</li></ul>`},{id:"output",badge:"C",title:"核对与输出",summary:"修改与复制：调整价格和输出顺序",body:`<ul><li>查看识别明细：检查截图时段和原始价格</li></ul>`}];
+function formatMonthLabel(value) {
+const [year, month] = String(value || "").split("-");
+return year && month ? `${year}年${month}月` : "选择月份";
+}
+function updateConfigSummary() {
+const summary = document.getElementById("configSummaryText");
+if (!summary) return;
+summary.textContent = `${REGION_CONFIGS[regionSelect.value].name} · ${formatMonthLabel(effectiveMonth.value)}`;
+}
+function closeTopMenus() {
+document.querySelectorAll(".top-popover").forEach(menu => { menu.hidden = true; });
+document.querySelectorAll("#configSummaryBtn, #moreBtn").forEach(button => button.setAttribute("aria-expanded", "false"));
+}
+function toggleTopMenu(menuId, buttonId) {
+const menu = document.getElementById(menuId);
+const button = document.getElementById(buttonId);
+const willOpen = menu.hidden;
+closeTopMenus();
+menu.hidden = !willOpen;
+button.setAttribute("aria-expanded", String(willOpen));
+}
+function setupCompactWorkspace() {
+const topbar = document.querySelector(".topbar");
+const topActions = topbar.querySelector(".top-actions");
+const regionControl = document.querySelector(".region-control");
+const monthControl = document.querySelector(".month-control");
+const helpButton = document.getElementById("helpBtn");
+topActions.innerHTML = `<button type="button" class="top-action-button" id="configSummaryBtn" aria-haspopup="true" aria-expanded="false">${svgIcon("calendar", "icon icon-sm")}<span id="configSummaryText"></span>${svgIcon("chevron-down", "icon icon-sm")}</button><button type="button" class="top-action-button" id="ruleTopBtn">${svgIcon("sliders", "icon icon-sm")}当前取价规则</button><button type="button" class="top-action-button" id="moreBtn" aria-haspopup="true" aria-expanded="false">${svgIcon("plus", "icon icon-sm")}更多设置</button>`;
+const configPopover = document.createElement("div");
+configPopover.className = "top-popover config-popover";
+configPopover.id = "configPopover";
+configPopover.hidden = true;
+configPopover.append(regionControl, monthControl);
+const moreMenu = document.createElement("div");
+moreMenu.className = "top-popover more-menu";
+moreMenu.id = "moreMenu";
+moreMenu.hidden = true;
+moreMenu.innerHTML = `<button type="button" data-more-action="common">常用时段</button><button type="button" data-more-action="copy">输出顺序</button><button type="button" data-more-action="export">导出 Excel</button><button type="button" data-more-action="help">使用说明</button><button type="button" data-more-action="samples">内部样例</button>`;
+topbar.append(configPopover, moreMenu, helpButton);
+helpButton.hidden = true;
+document.getElementById("sampleLock").hidden = true;
+moreMenu.appendChild(document.getElementById("sampleTools"));
+document.querySelector(".brand-divider")?.remove();
+document.querySelector(".brand-subtitle")?.remove();
+document.querySelector(".workflow")?.setAttribute("hidden", "");
+const inputPanel = document.querySelector(".input-panel");
+inputPanel.querySelector(".panel-title h2").textContent = "粘贴价格文本";
+inputPanel.querySelector(".panel-title .icon")?.remove();
+const inputActions = inputPanel.querySelector(".input-actions");
+inputActions.insertBefore(document.getElementById("clearBtn"), inputActions.firstChild);
+document.getElementById("clearBtn").className = "clear-button";
+document.getElementById("analyseBtn").innerHTML = `${svgIcon("sparkles", "icon icon-sm")}整理价格`;
+const resultPanel = document.querySelector(".result-panel");
+const resultHeader = resultPanel.querySelector(".result-header");
+resultHeader.querySelector("h2").textContent = "复制结果";
+resultHeader.querySelector(".ai-pill")?.remove();
+resultHeader.querySelector(".result-summary")?.remove();
+resultHeader.querySelector(".detail-jump")?.remove();
+const copyConsole = resultPanel.querySelector(".copy-console");
+resultPanel.insertBefore(copyConsole, resultPanel.querySelector(".detail-section"));
+copyConsole.querySelector(".copy-console-head strong").textContent = "当前复制内容";
+copyConsole.appendChild(document.getElementById("copyBtn"));
+document.getElementById("copyRuleText").addEventListener("click", openCopySettings);
+const coreSection = document.createElement("section");
+coreSection.className = "core-price-section";
+coreSection.id = "corePriceSection";
+coreSection.hidden = true;
+coreSection.innerHTML = `<div class="core-price-head"><h3>核心价格</h3><span>可直接修改，复制内容会同步更新</span></div><div class="core-price-grid" id="corePriceGrid"></div>`;
+copyConsole.insertAdjacentElement("afterend", coreSection);
+const compactIssue = document.createElement("div");
+compactIssue.className = "compact-issue-banner";
+compactIssue.id = "compactIssueBanner";
+compactIssue.hidden = true;
+compactIssue.innerHTML = `<span id="compactIssueText"></span><button type="button" id="compactIssueBtn">只看问题项</button>`;
+coreSection.insertAdjacentElement("afterend", compactIssue);
+document.getElementById("compactIssueBtn").addEventListener("click", () => {
+if (problemMode) exitProblemMode(); else enterProblemMode();
+});
+const detailSection = resultPanel.querySelector(".detail-section");
+const detailFold = document.createElement("details");
+detailFold.className = "detail-fold";
+detailFold.innerHTML = `<summary>展开详细明细${svgIcon("chevron-down", "icon icon-sm")}</summary>`;
+detailSection.replaceWith(detailFold);
+detailFold.appendChild(detailSection);
+const auditDetails = document.getElementById("auditDetails");
+if (auditDetails) detailFold.appendChild(auditDetails);
+document.getElementById("configSummaryBtn").addEventListener("click", event => { event.stopPropagation(); toggleTopMenu("configPopover", "configSummaryBtn"); });
+document.getElementById("moreBtn").addEventListener("click", event => { event.stopPropagation(); toggleTopMenu("moreMenu", "moreBtn"); });
+document.getElementById("ruleTopBtn").addEventListener("click", () => {
+closeTopMenus();
+if (!rulePopover.hidden) closeLayers(); else openLayer(rulePopover, false);
+});
+document.querySelectorAll("[data-more-action]").forEach(button => button.addEventListener("click", () => {
+const target = { common: "commonSettingsBtn", copy: "copySettingsBtn", export: "exportExcelBtn", help: "helpBtn", samples: "unlockSamplesBtn" }[button.dataset.moreAction];
+closeTopMenus();
+document.getElementById(target)?.click();
+}));
+document.addEventListener("pointerdown", event => {
+if (!event.target.closest(".top-popover, #configSummaryBtn, #moreBtn")) closeTopMenus();
+});
+updateConfigSummary();
+rawInput.focus();
+}
 function periodId(period){return`${period.start}-${period.end}|${period.name}`;}
 function readPreferences(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}")||{};}catch{return{};}}
 function writePreferences(value){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(value));}catch{/*本地存储不可用时仍可单次使用*/}}const storedPreferences=readPreferences();
@@ -369,6 +472,32 @@ renderResults();
 renderNotices();
 renderAudit();
 }
+function renderCorePrices() {
+const section = document.getElementById("corePriceSection");
+const grid = document.getElementById("corePriceGrid");
+if (!section || !grid) return;
+section.hidden = !hasAnalysed;
+if (!hasAnalysed) {
+grid.innerHTML = "";
+return;
+}
+const rows = orderedSelectedRows();
+grid.innerHTML = rows.length ? rows.map(row => `<div class="core-price-row" data-row-index="${row.index}"><div class="core-period"><strong>${escapeHtml(row.period.name)}</strong><span>${row.period.start}—${row.period.end}</span></div><label><span>非会员价</span><input class="core-price-input" data-kind="nonMember" inputmode="decimal" value="${row.nonMember !== "" ? Number(row.nonMember).toFixed(4) : ""}" placeholder="待核对"></label><label><span>会员价</span><input class="core-price-input" data-kind="member" inputmode="decimal" value="${row.member !== "" ? Number(row.member).toFixed(4) : ""}" placeholder="待核对"></label></div>`).join("") : `<div class="core-price-empty">当前没有选择复制时段，请到“更多设置”中选择常用时段。</div>`;
+grid.querySelectorAll(".core-price-row").forEach(element => {
+const row = resultRows[Number(element.dataset.rowIndex)];
+element.querySelectorAll(".core-price-input").forEach(input => {
+input.addEventListener("input", event => {
+row[event.target.dataset.kind] = event.target.value.trim();
+row.edited = true;
+updateCopyPreview();
+renderDashboardSummary();
+updateIssueControls();
+renderNotices();
+});
+input.addEventListener("change", renderResults);
+});
+});
+}
 function renderResults() {
 const state = getRegionSelection();
 const problemRows = hasAnalysed ? resultRows.filter(row => rowDisplayStatus(row) !== "ok") : [];
@@ -396,6 +525,7 @@ return `<tr data-row-index="${row.index}" data-period-id="${escapeHtml(periodId(
 }).join("");
 bindResultEvents();
 updateCopyPreview();
+renderCorePrices();
 renderVisibilityControls();
 renderDashboardSummary();
 updateIssueControls();
@@ -485,6 +615,12 @@ previewNotice.classList.toggle("success", !issues.length);
 previewNotice.textContent = issues.length
 ? "存在需核对项，建议处理后再复制。"
 : "所有时段已确认，可以复制结果。";
+const compactBanner = document.getElementById("compactIssueBanner");
+if (compactBanner) {
+compactBanner.hidden = !hasAnalysed || !issues.length;
+document.getElementById("compactIssueText").textContent = `发现 ${issues.length} 个需核对项，建议处理后再复制。`;
+document.getElementById("compactIssueBtn").textContent = problemMode ? "查看全部" : "只看问题项";
+}
 }
 function enterProblemMode() {
 if (!getProblemRows().length) return;
@@ -512,8 +648,8 @@ const orderedIds = [...state.order.filter(id => selectedIds.includes(id)), ...se
 return orderedIds.map(id => resultRows.find(row => periodId(row.period) === id)).filter(Boolean);
 }
 function priceItems(row, priceOrder = getRegionSelection().priceOrder) {
-const member = { label: `${row.period.name} · 会员`, value: row.member };
-const nonMember = { label: `${row.period.name} · 非会员`, value: row.nonMember };
+const member = { label: `${row.period.name}会员价`, value: row.member };
+const nonMember = { label: `${row.period.name}非会员价`, value: row.nonMember };
 return priceOrder === "member-first" ? [member, nonMember] : [nonMember, member];
 }
 function previewData(rows, priceOrder) {
@@ -536,9 +672,9 @@ function renderPreviewElements(labelsElement, valuesElement, data, emptyText) {
 const columnCount = Math.max(data.labels.length, 1);
 labelsElement.style.setProperty("--copy-count", columnCount);
 valuesElement.style.setProperty("--copy-count", columnCount);
-labelsElement.innerHTML = data.labels.map(label => `<span>${escapeHtml(label)}</span>`).join("");
+labelsElement.innerHTML = "";
 valuesElement.innerHTML = data.values.length
-? data.values.map(value => `<span class="${value === "" ? "empty-copy-value" : ""}">${escapeHtml(value)}</span>`).join("")
+? data.values.map((value, index) => `<span class="copy-price-tile ${value === "" ? "empty-copy-value" : ""}"><small>${escapeHtml(data.labels[index])}</small><strong>${escapeHtml(value || "待核对")}</strong></span>`).join("")
 : `<span class="copy-empty-state">${escapeHtml(emptyText)}</span>`;
 }
 function moveCopyDraft(id, direction) {
@@ -597,7 +733,7 @@ setTimeout(() => gear.classList.remove("sparkle"), 1500);
 }
 function positionRulePopover() {
 if (rulePopover.hidden) return;
-const buttonRect = document.getElementById("ruleBtn").getBoundingClientRect();
+const buttonRect = (document.getElementById("ruleTopBtn") || document.getElementById("ruleBtn")).getBoundingClientRect();
 const gap = 10;
 const edge = 12;
 const popoverWidth = rulePopover.offsetWidth;
@@ -695,6 +831,7 @@ regionSelect.addEventListener("change", () => {
 closeLayers();
 persistGeneralPreferences();
 renderSchedule();
+updateConfigSummary();
 if (rawInput.value.trim()) analyse(); else renderEmptyRows();
 });
 document.querySelector(".region-control").addEventListener("click", event => {
@@ -704,7 +841,7 @@ try { regionSelect.showPicker?.(); } catch { regionSelect.focus(); }
 document.querySelector(".month-control").addEventListener("click", () => {
 try { effectiveMonth.showPicker?.(); } catch { effectiveMonth.focus(); }
 });
-effectiveMonth.addEventListener("change", () => { persistGeneralPreferences(); renderSchedule(); renderDashboardSummary(); });
+effectiveMonth.addEventListener("change", () => { persistGeneralPreferences(); renderSchedule(); renderDashboardSummary(); updateConfigSummary(); });
 document.getElementById("unlockSamplesBtn").addEventListener("click", () => {
 const key = window.prompt("请输入内部样例密钥");
 if (key === INTERNAL_SAMPLE_KEY) {
@@ -717,8 +854,9 @@ window.alert("密钥不正确");
 document.getElementById("loadSampleBtn").addEventListener("click", () => { rawInput.value = SAMPLES[sampleSelect.value]; updateInputCount(); analyse(); });
 document.getElementById("analyseBtn").addEventListener("click", analyse);
 document.getElementById("resetResultBtn").addEventListener("click", analyse);
-document.getElementById("clearBtn").addEventListener("click", () => { rawInput.value = ""; updateInputCount(); renderEmptyRows(); });
+document.getElementById("clearBtn").addEventListener("click", () => { rawInput.value = ""; updateInputCount(); renderEmptyRows(); rawInput.focus(); });
 rawInput.addEventListener("input", () => { updateInputCount(); renderAudit(); });
+rawInput.addEventListener("paste", () => { setTimeout(() => { updateInputCount(); analyse(); }, 0); });
 document.getElementById("detailJumpBtn").addEventListener("click", () => {
 const details = document.getElementById("auditDetails");
 details.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -761,7 +899,7 @@ if (!rulePopover.hidden) closeLayers();
 else openLayer(rulePopover, false);
 });
 document.addEventListener("pointerdown", event => {
-if (!rulePopover.hidden && !rulePopover.contains(event.target) && !document.getElementById("ruleBtn").contains(event.target)) closeLayers();
+if (!rulePopover.hidden && !rulePopover.contains(event.target) && !document.getElementById("ruleBtn").contains(event.target) && !document.getElementById("ruleTopBtn")?.contains(event.target)) closeLayers();
 });
 window.addEventListener("resize", positionRulePopover);
 window.addEventListener("scroll", positionRulePopover, true);
@@ -772,7 +910,8 @@ openLayer(helpDrawer, true);
 document.getElementById("helpBackBtn").addEventListener("click", showHelpOverview);
 document.querySelectorAll("[data-close-layer]").forEach(button => button.addEventListener("click", closeLayers));
 modalOverlay.addEventListener("click", closeLayers);
-document.addEventListener("keydown", event => { if (event.key === "Escape") closeLayers(); });
+document.addEventListener("keydown", event => { if (event.key === "Escape") { closeTopMenus(); closeLayers(); } });
+setupCompactWorkspace();
 renderHelpLinks();
 window.PriceWorkbench = { parseSections, chooseForTarget, buildDocumentProfile, buildAssignmentCandidates, scoreAssignmentCandidate, findBestAssignmentPlan, REGION_CONFIGS };
 const startupParams = new URLSearchParams(window.location.search);
@@ -781,6 +920,7 @@ if (startupRegion && REGION_CONFIGS[startupRegion]) regionSelect.value = startup
 else if (storedPreferences.lastRegion && REGION_CONFIGS[storedPreferences.lastRegion]) regionSelect.value = storedPreferences.lastRegion;
 if (storedPreferences.effectiveMonth && !startupParams.get("month")) effectiveMonth.value = storedPreferences.effectiveMonth;
 if (startupParams.get("month")) effectiveMonth.value = startupParams.get("month");
+updateConfigSummary();
 updateInputCount();
 renderSchedule();
 renderEmptyRows();

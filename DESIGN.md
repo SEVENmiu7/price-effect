@@ -19,21 +19,21 @@
 
 ## 3. 视觉基调
 
-整体气质为克制、温暖、可靠的专业工具。沿用现有暖橙色和米白色，不照搬 Superhuman、Notion 或其他品牌外观。
+整体气质为简约、清新、可靠的专业工具。布局借鉴 flomo 的轻盈感和清楚分区，品牌强调使用滴滴橙；不照搬任何产品外观。
 
 ### 颜色
 
 ```css
---color-canvas: #fffdfb;
+--color-canvas: #f7f8f6;
 --color-surface: #ffffff;
---color-surface-soft: #fff8f3;
---color-primary: #df531c;
---color-primary-hover: #c94614;
---color-primary-soft: #fff0e7;
---color-text: #25211f;
---color-text-muted: #746d68;
---color-border: #eadbd2;
---color-border-strong: #d9c5b9;
+--color-surface-soft: #fcfdfb;
+--color-primary: #ff6b21;
+--color-primary-hover: #eb5512;
+--color-primary-soft: #fff4ed;
+--color-text: #202526;
+--color-text-muted: #768083;
+--color-border: #e2e7e5;
+--color-border-strong: #d4dcda;
 --color-warning: #b94d16;
 --color-warning-bg: #fff3e8;
 --color-danger: #c83b32;
