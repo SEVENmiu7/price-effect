@@ -538,7 +538,7 @@ grid.innerHTML = "";
 return;
 }
 const rows = orderedSelectedRows();
-grid.innerHTML = rows.length ? rows.map(row => `<div class="core-price-row" data-row-index="${row.index}"><div class="core-period"><strong>${escapeHtml(row.period.name)}</strong><span>${row.period.start}—${row.period.end}</span></div><label><span>非会员价</span><input class="core-price-input" data-kind="nonMember" inputmode="decimal" value="${row.nonMember !== "" ? Number(row.nonMember).toFixed(4) : ""}" placeholder="待核对"></label><label><span>会员价</span><input class="core-price-input" data-kind="member" inputmode="decimal" value="${row.member !== "" ? Number(row.member).toFixed(4) : ""}" placeholder="待核对"></label></div>`).join("") : `<div class="core-price-empty">当前没有选择复制时段，请到“更多设置”中选择常用时段。</div>`;
+grid.innerHTML = rows.length ? rows.map(row => `<div class="core-price-row" data-row-index="${row.index}"><div class="core-period"><strong>${escapeHtml(row.period.name)}<span>（${row.period.start}—${row.period.end}）</span></strong></div><label><span>非会员价</span><input class="core-price-input" data-kind="nonMember" inputmode="decimal" value="${row.nonMember !== "" ? Number(row.nonMember).toFixed(4) : ""}" placeholder="待核对"></label><label><span>会员价</span><input class="core-price-input" data-kind="member" inputmode="decimal" value="${row.member !== "" ? Number(row.member).toFixed(4) : ""}" placeholder="待核对"></label></div>`).join("") : `<div class="core-price-empty">当前没有选择复制时段，请到顶栏“常用时段”中进行设置。</div>`;
 grid.querySelectorAll(".core-price-row").forEach(element => {
 const row = resultRows[Number(element.dataset.rowIndex)];
 element.querySelectorAll(".core-price-input").forEach(input => {
@@ -633,12 +633,24 @@ if (!missing && !review && parsedSections.length) notices.push({ type: "", text:
 noticeStack.innerHTML = notices.map(item => `<div class="notice ${item.type}">${escapeHtml(item.text)}</div>`).join("");
 }
 function renderAudit() {
-const text = rawInput.value.trim();
-const preview = document.createElement(text ? "pre" : "div");
-preview.className = text ? "raw-text-content" : "raw-text-empty";
-preview.textContent = text || "粘贴文本后，这里显示原始内容。";
-auditBody.replaceChildren(preview);
-if (text && hasAnalysed) auditBody.closest("details")?.setAttribute("open", "");
+if (!hasAnalysed || !parsedSections.length) {
+auditBody.innerHTML = `<div class="raw-text-empty">整理价格后，这里会按时段显示识别到的全部原始价格。</div>`;
+return;
+}
+auditBody.innerHTML = `<div class="source-period-list">${parsedSections.map((section, sectionIndex) => {
+const groups = section.groups || [];
+const groupMarkup = groups.length ? groups.map(group => {
+const rawPrices = group.rawPrices || [];
+const pricesMarkup = rawPrices.length ? rawPrices.map((price, index) => {
+const isTotal = group.totalIndex >= 0 ? group.totalIndex === index : (group.total !== null && nearlyEqual(price, group.total));
+return `<span class="source-price ${isTotal ? "source-price-total" : ""}">${Number(price).toFixed(4)}${isTotal ? "<small>采用</small>" : ""}</span>`;
+}).join("") : `<span class="source-price source-price-missing">未识别到数字</span>`;
+const warning = group.warnings?.length ? `<p class="source-group-warning">${escapeHtml(group.warnings.join("；"))}</p>` : "";
+return `<div class="source-price-group"><div class="source-group-head"><strong>${escapeHtml(group.label || "未标注价格组")}</strong>${group.total !== null ? `<span>识别总价 ${Number(group.total).toFixed(4)}</span>` : `<span class="source-unresolved">总价待核对</span>`}</div><div class="source-price-values">${pricesMarkup}</div>${warning}</div>`;
+}).join("") : `<div class="source-price-group source-group-empty">该时段未识别到价格组。</div>`;
+return `<article class="source-period-card"><header><span class="source-period-index">${sectionIndex + 1}</span><strong>${escapeHtml(section.label || "原始时段")}</strong><small>${groups.length} 个价格组</small></header>${groupMarkup}</article>`;
+}).join("")}</div>`;
+auditBody.closest("details")?.setAttribute("open", "");
 }
 function renderVisibilityControls() {
 const state = getRegionSelection();
