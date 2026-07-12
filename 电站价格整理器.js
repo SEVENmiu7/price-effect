@@ -946,10 +946,12 @@ updateConfigSummary();
 if (rawInput.value.trim()) analyse(); else renderEmptyRows();
 });
 document.querySelector(".region-control").addEventListener("click", event => {
+if (regionSelect.dataset.prettySelect === "true") return;
 if (event.target === regionSelect) return;
 try { regionSelect.showPicker?.(); } catch { regionSelect.focus(); }
 });
 document.querySelector(".month-control").addEventListener("click", () => {
+if (effectiveMonth.dataset.prettySelect === "true") return;
 try { effectiveMonth.showPicker?.(); } catch { effectiveMonth.focus(); }
 });
 effectiveMonth.addEventListener("change", () => { activateTimeTable(regionSelect.value, effectiveMonth.value); persistGeneralPreferences(); renderSchedule(); if (rawInput.value.trim()) analyse(); else renderEmptyRows(); updateConfigSummary(); });
@@ -1140,6 +1142,52 @@ new ResizeObserver(() => { requestAnimationFrame(() => { const saved = savedPosi
 new MutationObserver(() => requestAnimationFrame(updateState)).observe(target, { childList: true, subtree: true, characterData: true });
 });
 }
+function enhancePrettySelect(select, options = {}) {
+if (!select || select.dataset.prettySelect === "true") return select?.closest(".pretty-select");
+select.dataset.prettySelect = "true";
+select.classList.add("pretty-select-native");
+const wrapper = document.createElement("div");
+wrapper.className = `pretty-select${options.compact ? " pretty-select-compact" : ""}`;
+wrapper.innerHTML = `<button type="button" class="pretty-select-trigger" aria-haspopup="listbox" aria-expanded="false"><span class="pretty-select-value"></span><span class="pretty-select-arrow" aria-hidden="true"></span></button><div class="pretty-select-menu" role="listbox" hidden></div>`;
+select.insertAdjacentElement("afterend", wrapper);
+const trigger = wrapper.querySelector(".pretty-select-trigger");
+const value = wrapper.querySelector(".pretty-select-value");
+const menu = wrapper.querySelector(".pretty-select-menu");
+const close = () => { menu.hidden = true; trigger.setAttribute("aria-expanded", "false"); wrapper.classList.remove("open"); };
+const render = () => {
+const selected = select.options[select.selectedIndex];
+value.textContent = selected?.textContent || "请选择";
+menu.innerHTML = [...select.options].map(option => `<button type="button" class="pretty-select-option${option.selected ? " selected" : ""}" role="option" aria-selected="${option.selected}" data-value="${escapeHtml(option.value)}"><span>${escapeHtml(option.textContent)}</span><span class="pretty-select-check">✓</span></button>`).join("");
+};
+trigger.addEventListener("click", event => {
+event.stopPropagation();
+const willOpen = menu.hidden;
+document.querySelectorAll(".pretty-select.open").forEach(item => { if (item !== wrapper) item.querySelector(".pretty-select-trigger")?.click(); });
+menu.hidden = !willOpen;
+trigger.setAttribute("aria-expanded", String(willOpen));
+wrapper.classList.toggle("open", willOpen);
+});
+menu.addEventListener("click", event => {
+const option = event.target.closest(".pretty-select-option");
+if (!option) return;
+select.value = option.dataset.value;
+select.dispatchEvent(new Event("change", { bubbles: true }));
+render();
+close();
+});
+select.addEventListener("change", render);
+new MutationObserver(render).observe(select, { childList: true, subtree: true });
+document.addEventListener("click", event => { if (!wrapper.contains(event.target)) close(); });
+document.addEventListener("keydown", event => { if (event.key === "Escape") close(); });
+render();
+return wrapper;
+}
+function normalizeClockValue(value) {
+const digits = String(value || "").replace(/\D/g, "").slice(0, 4);
+if (digits.length === 3) return `0${digits[0]}:${digits.slice(1)}`;
+if (digits.length === 4) return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+return value;
+}
 function openTimeTableEditor() {
 let editor = document.getElementById("timeTableEditor");
 if (!editor) {
@@ -1149,14 +1197,16 @@ editor.className = "modal time-table-editor";
 editor.hidden = true;
 editor.setAttribute("role", "dialog");
 editor.setAttribute("aria-modal", "true");
-editor.innerHTML = `<div class="drawer-head"><div><div class="eyebrow">内部工具</div><h2>时段表管理</h2><p>编辑后导出正式配置，再提交 Git 并重新部署。</p></div><button type="button" class="icon-button" data-close-layer aria-label="关闭">×</button></div><div class="editor-access" id="editorAccess"><label>内部密钥<input id="editorKey" type="password" autocomplete="off" placeholder="请输入内部样例密钥"></label><button type="button" class="primary" id="editorUnlock">进入管理</button><p id="editorKeyError" hidden>密钥不正确。</p></div><div id="editorContent" hidden><div class="editor-meta"><label>地区标识<input id="editorRegionKey" placeholder="例如 hubei"></label><label>地区名称<input id="editorRegionName" placeholder="例如 湖北"></label><label>生效月份<input id="editorMonth" type="month"></label></div><div class="editor-toolbar"><button type="button" id="editorLoadCurrent">载入当前配置</button><button type="button" id="editorNew">空白新建</button><button type="button" id="editorAddPeriod">添加时段</button></div><div class="editor-periods" id="editorPeriods"></div><div class="editor-feedback" id="editorFeedback">请完整覆盖 00:00—24:00，且时段不能重叠。</div><div class="modal-footer"><button type="button" id="editorValidate">检查时段表</button><button type="button" class="primary" id="editorExport">导出正式配置</button></div></div>`;
+editor.innerHTML = `<div class="drawer-head"><div><div class="eyebrow">内部工具</div><h2>时段表管理</h2><p>编辑后导出正式配置，再提交 Git 并重新部署。</p></div><button type="button" class="icon-button" data-close-layer aria-label="关闭">×</button></div><div class="editor-access" id="editorAccess"><label>内部密钥<input id="editorKey" type="password" autocomplete="off" placeholder="请输入内部样例密钥"></label><button type="button" class="primary" id="editorUnlock">进入管理</button><p id="editorKeyError" hidden>密钥不正确。</p></div><div id="editorContent" hidden><div class="editor-meta"><label>地区标识<input id="editorRegionKey" placeholder="例如 hubei"></label><label>地区名称<input id="editorRegionName" placeholder="例如 湖北"></label><label>生效月份<input id="editorMonth" type="text" inputmode="numeric" maxlength="7" placeholder="2026-06"></label></div><div class="editor-toolbar"><button type="button" id="editorLoadCurrent">载入当前配置</button><button type="button" id="editorNew">空白新建</button><button type="button" id="editorAddPeriod">添加时段</button></div><div class="editor-period-head" aria-hidden="true"><span>时段名称</span><span>开始</span><span>结束</span><span>类型</span><span>默认常用</span><span></span></div><div class="editor-periods" id="editorPeriods"></div><div class="editor-feedback" id="editorFeedback">请完整覆盖 00:00—24:00，且时段不能重叠。</div><div class="modal-footer"><button type="button" id="editorValidate">检查时段表</button><button type="button" class="primary" id="editorExport">导出正式配置</button></div></div>`;
 document.body.appendChild(editor);
 const rows = editor.querySelector("#editorPeriods");
 const addRow = (period = { name: "平", start: "00:00", end: "24:00", tone: 5 }, selected = false) => {
 const row = document.createElement("div");
 row.className = "editor-period-row";
-row.innerHTML = `<label>时段名称<input data-field="name" value="${escapeHtml(period.name)}"></label><label>开始<input data-field="start" type="time" value="${period.start}"></label><label>结束<input data-field="end" type="text" value="${period.end}" placeholder="24:00"></label><label>类型<select data-field="tone"><option value="1">深谷</option><option value="2">谷</option><option value="4">峰</option><option value="5">平</option></select></label><label class="editor-common"><input data-field="common" type="checkbox" ${selected ? "checked" : ""}>默认常用</label><button type="button" class="editor-remove" aria-label="删除时段">×</button>`;
+row.innerHTML = `<input data-field="name" aria-label="时段名称" value="${escapeHtml(period.name)}"><input data-field="start" aria-label="开始时间" type="text" inputmode="numeric" maxlength="5" value="${period.start}" placeholder="00:00"><input data-field="end" aria-label="结束时间" type="text" inputmode="numeric" maxlength="5" value="${period.end}" placeholder="24:00"><select data-field="tone" aria-label="类型"><option value="1">深谷</option><option value="2">谷</option><option value="4">峰</option><option value="5">平</option></select><label class="editor-common"><input data-field="common" type="checkbox" ${selected ? "checked" : ""}>常用</label><button type="button" class="editor-remove" aria-label="删除时段">×</button>`;
 row.querySelector('[data-field="tone"]').value = String(period.tone || 5);
+enhancePrettySelect(row.querySelector('[data-field="tone"]'), { compact: true });
+row.querySelectorAll('[data-field="start"], [data-field="end"]').forEach(input => input.addEventListener("blur", () => { input.value = normalizeClockValue(input.value); }));
 row.querySelector(".editor-remove").addEventListener("click", () => row.remove());
 rows.appendChild(row);
 };
@@ -1205,6 +1255,9 @@ populateRegionOptions(startupRegion || storedPreferences.lastRegion || "changsha
 if (startupRegion && REGION_CONFIGS[startupRegion]) regionSelect.value = startupRegion;
 else if (storedPreferences.lastRegion && REGION_CONFIGS[storedPreferences.lastRegion]) regionSelect.value = storedPreferences.lastRegion;
 populateMonthOptions(regionSelect.value, startupParams.get("month") || storedPreferences.effectiveMonth || "2026-06");
+enhancePrettySelect(regionSelect);
+enhancePrettySelect(effectiveMonth);
+enhancePrettySelect(sampleSelect);
 updateConfigSummary();
 updateInputCount();
 renderSchedule();
