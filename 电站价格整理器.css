@@ -341,7 +341,7 @@ body.v4 {
 
 .v4 .workspace {
   display: grid;
-  grid-template-columns: minmax(370px, .42fr) minmax(610px, .58fr);
+  grid-template-columns: minmax(260px, .28fr) minmax(720px, .72fr);
   gap: 22px;
   width: min(1480px, calc(100% - 64px));
   margin: 24px auto 40px;
@@ -671,31 +671,36 @@ body.v4 {
 }
 
 .v4 .core-price-grid {
-  width: min(100%, 780px);
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: #fff;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .v4 .core-price-row {
   display: grid;
-  grid-template-columns: minmax(230px, 320px) 190px 190px;
-  gap: 14px;
-  align-items: end;
-  justify-content: start;
-  padding: 12px 14px;
-  border-bottom: 1px solid #edf0ef;
+  grid-template-columns: minmax(135px, .85fr) repeat(2, minmax(108px, 1fr));
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
 }
 
 .v4 .core-price-row:last-child {
-  border-bottom: 0;
+  border-bottom: 1px solid var(--line);
 }
 
 .v4 .core-period {
   display: flex;
   align-items: center;
-  padding-bottom: 7px;
+  padding-bottom: 0;
 }
 
 .v4 .core-period strong {
@@ -835,7 +840,7 @@ body.v4 {
   }
 
   .v4 .workspace {
-    grid-template-columns: minmax(300px, .4fr) minmax(480px, .6fr);
+    grid-template-columns: 1fr;
     width: calc(100% - 32px);
     gap: 14px;
     margin-top: 16px;
@@ -844,6 +849,14 @@ body.v4 {
   .v4 .input-panel,
   .v4 .result-panel {
     padding: 18px;
+  }
+
+  .v4 .input-panel {
+    min-height: 620px;
+  }
+
+  .v4 #rawInput {
+    min-height: 430px;
   }
 }
 
@@ -925,6 +938,7 @@ body.v4 {
 
 .v4 .source-period-list {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -933,7 +947,7 @@ body.v4 {
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #fff;
-  width: min(100%, 780px);
+  width: 100%;
 }
 
 .v4 .source-period-card > header {
@@ -1041,6 +1055,20 @@ body.v4 {
 .v4 .source-group-empty {
   color: var(--muted);
   font-size: 11px;
+}
+
+@media (min-width: 1021px) and (max-width: 1180px) {
+  .v4 .core-price-grid,
+  .v4 .source-period-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 920px) {
+  .v4 .core-price-grid,
+  .v4 .source-period-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 .v4 .raw-text-content {
