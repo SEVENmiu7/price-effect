@@ -2111,3 +2111,28 @@ body.v4 {
     width: 100%;
   }
 }
+
+/* 同级内容共用一条边界，网格允许在不同浏览器和宽度下安全收缩。 */
+.v4 .input-panel > .input-tools {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.v4 .input-panel .input-actions {
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, .42fr) minmax(0, .58fr);
+}
+
+.v4 .input-panel .input-actions button {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 768px) {
+  .v4 .input-panel .input-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
