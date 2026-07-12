@@ -85,13 +85,14 @@
         <div class="header-control month-control">
           <label for="effectiveMonth">生效月份</label>
           <svg class="icon control-icon"><use href="#i-calendar"></use></svg>
-          <input id="effectiveMonth" type="month" value="2026-06" data-testid="effective-month">
+          <select id="effectiveMonth" data-testid="effective-month" aria-label="生效月份"></select>
           <svg class="icon control-chevron" aria-hidden="true"><use href="#i-chevron-down"></use></svg>
         </div>
       </div>
 
       <div class="top-popover more-menu" id="moreMenu" hidden>
         <button type="button" data-more-action="export">导出 Excel</button>
+        <button type="button" data-more-action="timetable">时段表管理</button>
         <button type="button" data-more-action="help">使用说明</button>
         <button type="button" data-more-action="samples">内部样例</button>
         <div class="sample-row" id="sampleTools" hidden>
@@ -413,6 +414,7 @@
     </div>
   </aside>
 
+  <script src="时段配置.js"></script>
   <script src="电站价格整理器.js"></script>
 </body>
 </html>

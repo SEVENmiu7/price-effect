@@ -216,6 +216,36 @@ YKC价
 0.2610
 0.2610
 0.2505最高优惠5元`};const INTERNAL_SAMPLE_KEY="didichangsha";const regionSelect=document.getElementById("regionSelect");const effectiveMonth=document.getElementById("effectiveMonth");const rawInput=document.getElementById("rawInput");const sampleSelect=document.getElementById("sampleSelect");const resultBody=document.getElementById("resultBody");const noticeStack=document.getElementById("noticeStack");const copyPreview=document.getElementById("copyPreview");const copyLabels=document.getElementById("copyLabels");const auditBody=document.getElementById("auditBody");const commonOnlyToggle=document.getElementById("commonOnlyToggle");const commonModal=document.getElementById("commonModal");const copyModal=document.getElementById("copyModal");const modalOverlay=document.getElementById("modalOverlay");const rulePopover=document.getElementById("rulePopover");const helpDrawer=document.getElementById("helpDrawer");let resultRows=[];let parsedSections=[];const STORAGE_KEY="price-workbench-team-v02";const regionSelectionState={};let copyDraft=null;const HELP_SECTIONS=[{id:"basic",badge:"A",title:"基础设置",summary:"地区和月份：选择对应的时段配置",body:`<ul><li>全天时段：查看当天完整的峰谷划分</li><li>粘贴查价文本：怎样保留有效内容</li></ul>`},{id:"rules",badge:"B",title:"规则与常用设置",summary:"常用时段：保存、重新设置和清除",body:`<ul><li>价格如何选取：会员价和非会员价的规则</li></ul>`},{id:"output",badge:"C",title:"核对与输出",summary:"修改与复制：调整价格和输出顺序",body:`<ul><li>查看识别明细：检查截图时段和原始价格</li></ul>`}];
+const TIME_TABLE_DATA = window.PRICE_TIME_TABLES || {
+version: "内置兼容配置",
+regions: Object.fromEntries(Object.entries(REGION_CONFIGS).map(([key, config]) => [key, { name: config.name, tables: { "2026-06": { defaultOrder: config.defaultOrder, periods: config.periods } } }]))
+};
+function availableMonths(regionKey) {
+return Object.keys(TIME_TABLE_DATA.regions[regionKey]?.tables || {}).sort().reverse();
+}
+function activateTimeTable(regionKey, month) {
+const region = TIME_TABLE_DATA.regions[regionKey];
+const table = region?.tables?.[month];
+if (!region || !table) return false;
+REGION_CONFIGS[regionKey] = { name: region.name, defaultOrder: [...table.defaultOrder], periods: table.periods.map(period => ({ ...period })) };
+delete regionSelectionState[regionKey];
+return true;
+}
+function populateRegionOptions(selectedKey) {
+Object.entries(TIME_TABLE_DATA.regions).forEach(([key, region]) => {
+const month = availableMonths(key)[0];
+const table = region.tables[month];
+REGION_CONFIGS[key] = { name: region.name, defaultOrder: [...table.defaultOrder], periods: table.periods.map(period => ({ ...period })) };
+});
+regionSelect.innerHTML = Object.entries(TIME_TABLE_DATA.regions).map(([key, region]) => `<option value="${escapeHtml(key)}">${escapeHtml(region.name)}</option>`).join("");
+if (selectedKey && TIME_TABLE_DATA.regions[selectedKey]) regionSelect.value = selectedKey;
+}
+function populateMonthOptions(regionKey, selectedMonth) {
+const months = availableMonths(regionKey);
+effectiveMonth.innerHTML = months.map(month => `<option value="${month}">${formatMonthLabel(month)}</option>`).join("");
+effectiveMonth.value = months.includes(selectedMonth) ? selectedMonth : (months[0] || "");
+activateTimeTable(regionKey, effectiveMonth.value);
+}
 function formatMonthLabel(value) {
 const [year, month] = String(value || "").split("-");
 return year && month ? `${year}年${month}月` : "选择月份";
@@ -288,6 +318,7 @@ document.querySelectorAll("[data-more-action]").forEach(button => {
 if (button.dataset.bound) return;
 button.dataset.bound = "true";
 button.addEventListener("click", () => {
+if (button.dataset.moreAction === "timetable") { closeTopMenus(); openTimeTableEditor(); return; }
 const target = { common: "commonSettingsBtn", copy: "copySettingsBtn", export: "exportExcelBtn", help: "helpBtn", samples: "unlockSamplesBtn" }[button.dataset.moreAction];
 closeTopMenus();
 document.getElementById(target)?.click();
@@ -324,7 +355,7 @@ const moreMenu = document.createElement("div");
 moreMenu.className = "top-popover more-menu";
 moreMenu.id = "moreMenu";
 moreMenu.hidden = true;
-moreMenu.innerHTML = `<button type="button" data-more-action="export">导出 Excel</button><button type="button" data-more-action="help">使用说明</button><button type="button" data-more-action="samples">内部样例</button>`;
+moreMenu.innerHTML = `<button type="button" data-more-action="export">导出 Excel</button><button type="button" data-more-action="timetable">时段表管理</button><button type="button" data-more-action="help">使用说明</button><button type="button" data-more-action="samples">内部样例</button>`;
 topbar.append(configPopover, moreMenu, helpButton);
 helpButton.hidden = true;
 document.getElementById("sampleLock").hidden = true;
@@ -838,6 +869,7 @@ if (element === rulePopover) requestAnimationFrame(positionRulePopover);
 }
 function closeLayers() {
 [commonModal, copyModal, rulePopover, helpDrawer, modalOverlay].forEach(element => { element.hidden = true; });
+document.getElementById("timeTableEditor")?.setAttribute("hidden", "");
 document.body.style.overflow = "";
 }
 function renderHelpLinks() {
@@ -907,6 +939,7 @@ link.remove();
 }
 regionSelect.addEventListener("change", () => {
 closeLayers();
+populateMonthOptions(regionSelect.value, effectiveMonth.value);
 persistGeneralPreferences();
 renderSchedule();
 updateConfigSummary();
@@ -919,7 +952,7 @@ try { regionSelect.showPicker?.(); } catch { regionSelect.focus(); }
 document.querySelector(".month-control").addEventListener("click", () => {
 try { effectiveMonth.showPicker?.(); } catch { effectiveMonth.focus(); }
 });
-effectiveMonth.addEventListener("change", () => { persistGeneralPreferences(); renderSchedule(); renderDashboardSummary(); updateConfigSummary(); });
+effectiveMonth.addEventListener("change", () => { activateTimeTable(regionSelect.value, effectiveMonth.value); persistGeneralPreferences(); renderSchedule(); if (rawInput.value.trim()) analyse(); else renderEmptyRows(); updateConfigSummary(); });
 document.getElementById("unlockSamplesBtn").addEventListener("click", () => {
 const key = window.prompt("请输入内部样例密钥");
 if (key === INTERNAL_SAMPLE_KEY) {
@@ -1107,16 +1140,71 @@ new ResizeObserver(() => { requestAnimationFrame(() => { const saved = savedPosi
 new MutationObserver(() => requestAnimationFrame(updateState)).observe(target, { childList: true, subtree: true, characterData: true });
 });
 }
+function openTimeTableEditor() {
+let editor = document.getElementById("timeTableEditor");
+if (!editor) {
+editor = document.createElement("section");
+editor.id = "timeTableEditor";
+editor.className = "modal time-table-editor";
+editor.hidden = true;
+editor.setAttribute("role", "dialog");
+editor.setAttribute("aria-modal", "true");
+editor.innerHTML = `<div class="drawer-head"><div><div class="eyebrow">内部工具</div><h2>时段表管理</h2><p>编辑后导出正式配置，再提交 Git 并重新部署。</p></div><button type="button" class="icon-button" data-close-layer aria-label="关闭">×</button></div><div class="editor-access" id="editorAccess"><label>内部密钥<input id="editorKey" type="password" autocomplete="off" placeholder="请输入内部样例密钥"></label><button type="button" class="primary" id="editorUnlock">进入管理</button><p id="editorKeyError" hidden>密钥不正确。</p></div><div id="editorContent" hidden><div class="editor-meta"><label>地区标识<input id="editorRegionKey" placeholder="例如 hubei"></label><label>地区名称<input id="editorRegionName" placeholder="例如 湖北"></label><label>生效月份<input id="editorMonth" type="month"></label></div><div class="editor-toolbar"><button type="button" id="editorLoadCurrent">载入当前配置</button><button type="button" id="editorNew">空白新建</button><button type="button" id="editorAddPeriod">添加时段</button></div><div class="editor-periods" id="editorPeriods"></div><div class="editor-feedback" id="editorFeedback">请完整覆盖 00:00—24:00，且时段不能重叠。</div><div class="modal-footer"><button type="button" id="editorValidate">检查时段表</button><button type="button" class="primary" id="editorExport">导出正式配置</button></div></div>`;
+document.body.appendChild(editor);
+const rows = editor.querySelector("#editorPeriods");
+const addRow = (period = { name: "平", start: "00:00", end: "24:00", tone: 5 }, selected = false) => {
+const row = document.createElement("div");
+row.className = "editor-period-row";
+row.innerHTML = `<label>时段名称<input data-field="name" value="${escapeHtml(period.name)}"></label><label>开始<input data-field="start" type="time" value="${period.start}"></label><label>结束<input data-field="end" type="text" value="${period.end}" placeholder="24:00"></label><label>类型<select data-field="tone"><option value="1">深谷</option><option value="2">谷</option><option value="4">峰</option><option value="5">平</option></select></label><label class="editor-common"><input data-field="common" type="checkbox" ${selected ? "checked" : ""}>默认常用</label><button type="button" class="editor-remove" aria-label="删除时段">×</button>`;
+row.querySelector('[data-field="tone"]').value = String(period.tone || 5);
+row.querySelector(".editor-remove").addEventListener("click", () => row.remove());
+rows.appendChild(row);
+};
+const loadConfig = (regionKey = regionSelect.value, month = effectiveMonth.value) => {
+const region = TIME_TABLE_DATA.regions[regionKey];
+const table = region?.tables?.[month];
+editor.querySelector("#editorRegionKey").value = regionKey;
+editor.querySelector("#editorRegionName").value = region?.name || "";
+editor.querySelector("#editorMonth").value = month;
+rows.innerHTML = "";
+(table?.periods || []).forEach(period => addRow(period, table.defaultOrder.includes(periodId(period))));
+};
+const collect = () => {
+const periods = [...rows.children].map(row => ({ name: row.querySelector('[data-field="name"]').value.trim(), start: row.querySelector('[data-field="start"]').value, end: row.querySelector('[data-field="end"]').value.trim(), tone: Number(row.querySelector('[data-field="tone"]').value), common: row.querySelector('[data-field="common"]').checked }));
+return { key: editor.querySelector("#editorRegionKey").value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, ""), name: editor.querySelector("#editorRegionName").value.trim(), month: editor.querySelector("#editorMonth").value, periods };
+};
+const validate = data => {
+const errors = [];
+if (!data.key || !data.name || !/^\d{4}-\d{2}$/.test(data.month)) errors.push("请填写地区标识、地区名称和生效月份");
+if (!data.periods.length) errors.push("至少添加一个时段");
+const ordered = [...data.periods].sort((a, b) => toMin(a.start) - toMin(b.start));
+ordered.forEach((period, index) => { if (!period.name || !/^\d{2}:\d{2}$/.test(period.start) || !/^\d{2}:\d{2}$/.test(period.end) || toMin(period.end) <= toMin(period.start)) errors.push(`第 ${index + 1} 个时段内容或时间不合法`); if (index && toMin(period.start) !== toMin(ordered[index - 1].end)) errors.push(`${ordered[index - 1].end} 与 ${period.start} 之间存在遗漏或重叠`); });
+if (ordered.length && (ordered[0].start !== "00:00" || ordered.at(-1).end !== "24:00")) errors.push("时段表必须完整覆盖 00:00—24:00");
+if (!data.periods.some(period => period.common)) errors.push("至少选择一个默认常用时段");
+return [...new Set(errors)];
+};
+editor.querySelector("#editorUnlock").addEventListener("click", () => { const ok = editor.querySelector("#editorKey").value === INTERNAL_SAMPLE_KEY; editor.querySelector("#editorKeyError").hidden = ok; if (ok) { editor.querySelector("#editorAccess").hidden = true; editor.querySelector("#editorContent").hidden = false; loadConfig(); } });
+editor.querySelector("#editorLoadCurrent").addEventListener("click", () => loadConfig());
+editor.querySelector("#editorNew").addEventListener("click", () => { editor.querySelector("#editorRegionKey").value = ""; editor.querySelector("#editorRegionName").value = ""; editor.querySelector("#editorMonth").value = ""; rows.innerHTML = ""; addRow(); });
+editor.querySelector("#editorAddPeriod").addEventListener("click", () => addRow({ name: "平", start: "00:00", end: "24:00", tone: 5 }));
+editor.querySelector("#editorValidate").addEventListener("click", () => { const errors = validate(collect()); const feedback = editor.querySelector("#editorFeedback"); feedback.className = `editor-feedback ${errors.length ? "error" : "success"}`; feedback.textContent = errors.length ? errors.join("；") : "检查通过，可以导出正式配置。"; });
+editor.querySelector("#editorExport").addEventListener("click", () => { const data = collect(); const errors = validate(data); if (errors.length) { editor.querySelector("#editorFeedback").textContent = errors.join("；"); editor.querySelector("#editorFeedback").className = "editor-feedback error"; return; } const output = JSON.parse(JSON.stringify(TIME_TABLE_DATA)); output.version = new Date().toISOString().slice(0, 16).replace("T", " "); output.regions[data.key] = output.regions[data.key] || { name: data.name, tables: {} }; output.regions[data.key].name = data.name; const periods = data.periods.map(({ common, ...period }) => period); output.regions[data.key].tables[data.month] = { defaultOrder: data.periods.filter(period => period.common).map(period => periodId(period)), periods }; const blob = new Blob([`/* 正式时段配置：提交 Git 并重新部署后生效。 */\nwindow.PRICE_TIME_TABLES = ${JSON.stringify(output, null, 2)};\n`], { type: "text/javascript;charset=utf-8" }); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "时段配置.js"; link.click(); URL.revokeObjectURL(link.href); });
+editor.querySelectorAll("[data-close-layer]").forEach(button => button.addEventListener("click", closeLayers));
+}
+openLayer(editor, true);
+}
 setupCompactWorkspace();
+document.getElementById("configPopover")?.insertAdjacentHTML("afterbegin", `<div class="top-menu-heading"><strong>地区与月份</strong><span>正式配置版本 ${escapeHtml(TIME_TABLE_DATA.version)}</span></div>`);
+document.getElementById("moreMenu")?.insertAdjacentHTML("afterbegin", `<div class="top-menu-heading"><strong>更多设置</strong><span>导出、说明与内部工具</span></div>`);
 setupScrollJumpControls();
 renderHelpLinks();
 window.PriceWorkbench = { parseSections, chooseForTarget, buildDocumentProfile, buildAssignmentCandidates, scoreAssignmentCandidate, findBestAssignmentPlan, REGION_CONFIGS };
 const startupParams = new URLSearchParams(window.location.search);
 const startupRegion = startupParams.get("region");
+populateRegionOptions(startupRegion || storedPreferences.lastRegion || "changsha");
 if (startupRegion && REGION_CONFIGS[startupRegion]) regionSelect.value = startupRegion;
 else if (storedPreferences.lastRegion && REGION_CONFIGS[storedPreferences.lastRegion]) regionSelect.value = storedPreferences.lastRegion;
-if (storedPreferences.effectiveMonth && !startupParams.get("month")) effectiveMonth.value = storedPreferences.effectiveMonth;
-if (startupParams.get("month")) effectiveMonth.value = startupParams.get("month");
+populateMonthOptions(regionSelect.value, startupParams.get("month") || storedPreferences.effectiveMonth || "2026-06");
 updateConfigSummary();
 updateInputCount();
 renderSchedule();
