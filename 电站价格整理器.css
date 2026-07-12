@@ -672,7 +672,7 @@ body.v4 {
 
 .v4 .core-price-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   width: 100%;
   overflow: visible;
@@ -683,7 +683,7 @@ body.v4 {
 
 .v4 .core-price-row {
   display: grid;
-  grid-template-columns: minmax(135px, .85fr) repeat(2, minmax(108px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   align-items: center;
   min-width: 0;
@@ -701,6 +701,7 @@ body.v4 {
   display: flex;
   align-items: center;
   padding-bottom: 0;
+  grid-column: 1 / -1;
 }
 
 .v4 .core-period strong {
@@ -938,7 +939,7 @@ body.v4 {
 
 .v4 .source-period-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1064,10 +1065,153 @@ body.v4 {
   }
 }
 
+@media (max-width: 1500px) {
+  .v4 .core-price-grid,
+  .v4 .source-period-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1021px) and (max-width: 1180px) {
+  .v4 .core-price-grid,
+  .v4 .source-period-list {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 920px) {
   .v4 .core-price-grid,
   .v4 .source-period-list {
     grid-template-columns: 1fr;
+  }
+}
+
+.v4 .scroll-jump-zone {
+  position: relative;
+  min-width: 0;
+}
+
+.v4 .scroll-jump-zone-x {
+  width: 100%;
+}
+
+.v4 .input-panel > .scroll-jump-zone-y {
+  display: flex;
+  flex: 1;
+  min-height: 560px;
+  margin: 22px 0 18px;
+}
+
+.v4 .scroll-jump-zone #rawInput {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+}
+
+.v4 .scroll-jump-zone > .copy-scroll,
+.v4 .scroll-jump-zone > .table-wrap,
+.v4 .scroll-jump-zone > .raw-text-body {
+  width: 100%;
+}
+
+.v4 .scroll-jump-control {
+  position: absolute;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(210, 214, 210, .92);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .88);
+  box-shadow: 0 8px 24px rgba(43, 52, 50, .16);
+  opacity: .42;
+  backdrop-filter: blur(10px);
+  transition: opacity .18s ease, box-shadow .18s ease;
+  touch-action: none;
+}
+
+.v4 .scroll-jump-zone:hover > .scroll-jump-control,
+.v4 .scroll-jump-control:focus-within,
+.v4 .scroll-jump-control.is-dragging {
+  opacity: 1;
+  box-shadow: 0 10px 28px rgba(43, 52, 50, .2);
+}
+
+.v4 .scroll-jump-control[data-axis="x"] {
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+}
+
+.v4 .scroll-jump-control[data-axis="y"] {
+  right: 10px;
+  top: 50%;
+  flex-direction: column;
+  transform: translateY(-50%);
+}
+
+.v4 .scroll-jump-control button {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: #526061;
+  background: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  box-shadow: 0 1px 5px rgba(30, 40, 38, .1);
+}
+
+.v4 .scroll-jump-control button:hover:not(:disabled) {
+  color: #fff;
+  background: var(--brand);
+  transform: none;
+}
+
+.v4 .scroll-jump-control button:disabled {
+  color: #b8bfbe;
+  background: #f5f6f4;
+  box-shadow: none;
+  cursor: default;
+}
+
+.v4 .scroll-jump-handle {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 28px;
+  color: #909998;
+  font-size: 13px;
+  line-height: 1;
+  cursor: grab;
+  user-select: none;
+}
+
+.v4 .scroll-jump-control[data-axis="y"] .scroll-jump-handle {
+  width: 28px;
+  height: 20px;
+}
+
+.v4 .scroll-jump-handle:active {
+  cursor: grabbing;
+}
+
+.v4 .scroll-jump-handle:focus-visible {
+  border-radius: 5px;
+  outline: 2px solid rgba(255, 107, 33, .35);
+}
+
+@media (max-width: 760px) {
+  .v4 .input-panel > .scroll-jump-zone-y {
+    min-height: 430px;
+  }
+
+  .v4 .scroll-jump-control {
+    opacity: .72;
   }
 }
 

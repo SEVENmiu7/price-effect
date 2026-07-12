@@ -989,7 +989,126 @@ document.getElementById("helpBackBtn").addEventListener("click", showHelpOvervie
 document.querySelectorAll("[data-close-layer]").forEach(button => button.addEventListener("click", closeLayers));
 modalOverlay.addEventListener("click", closeLayers);
 document.addEventListener("keydown", event => { if (event.key === "Escape") { closeTopMenus(); closeLayers(); } });
+const SCROLL_JUMP_POSITION_KEY = "price-workbench-scroll-jump-v01";
+function setupScrollJumpControls() {
+const configs = [
+{ target: rawInput, axis: "y", id: "raw-input" },
+{ target: document.querySelector(".copy-scroll"), axis: "x", id: "copy-preview" },
+{ target: document.querySelector(".table-wrap"), axis: "x", id: "price-table" },
+{ target: auditBody, axis: "y", id: "source-detail" }
+].filter(config => config.target);
+let savedPositions = {};
+try { savedPositions = JSON.parse(localStorage.getItem(SCROLL_JUMP_POSITION_KEY) || "{}"); } catch {}
+const savePosition = (id, value) => {
+savedPositions[id] = value;
+try { localStorage.setItem(SCROLL_JUMP_POSITION_KEY, JSON.stringify(savedPositions)); } catch {}
+};
+configs.forEach(config => {
+const { target, axis, id } = config;
+if (target.closest(".scroll-jump-zone")) return;
+const zone = document.createElement("div");
+zone.className = `scroll-jump-zone scroll-jump-zone-${axis}`;
+const control = document.createElement("div");
+control.className = "scroll-jump-control";
+control.dataset.axis = axis;
+control.hidden = true;
+const startLabel = axis === "x" ? "一键滚动到最左" : "一键滚动到顶部";
+const endLabel = axis === "x" ? "一键滚动到最右" : "一键滚动到底部";
+control.innerHTML = `<button type="button" data-scroll-edge="start" aria-label="${startLabel}" title="${startLabel}">${axis === "x" ? "⇤" : "⇡"}</button><span class="scroll-jump-handle" role="button" tabindex="0" aria-label="拖动滚动按钮；双击恢复默认位置" title="拖动调整位置；双击恢复默认位置">⠿</span><button type="button" data-scroll-edge="end" aria-label="${endLabel}" title="${endLabel}">${axis === "x" ? "⇥" : "⇣"}</button>`;
+target.parentNode.insertBefore(zone, target);
+zone.append(target, control);
+const startButton = control.querySelector('[data-scroll-edge="start"]');
+const endButton = control.querySelector('[data-scroll-edge="end"]');
+const handle = control.querySelector(".scroll-jump-handle");
+const maxScroll = () => axis === "x" ? target.scrollWidth - target.clientWidth : target.scrollHeight - target.clientHeight;
+const currentScroll = () => axis === "x" ? target.scrollLeft : target.scrollTop;
+const updateState = () => {
+const maximum = Math.max(maxScroll(), 0);
+control.hidden = maximum <= 2;
+const current = currentScroll();
+startButton.disabled = current <= 2;
+endButton.disabled = current >= maximum - 2;
+};
+const scrollToEdge = edge => {
+const value = edge === "start" ? 0 : Math.max(maxScroll(), 0);
+target.scrollTo(axis === "x" ? { left: value, behavior: "smooth" } : { top: value, behavior: "smooth" });
+};
+startButton.addEventListener("click", () => scrollToEdge("start"));
+endButton.addEventListener("click", () => scrollToEdge("end"));
+target.addEventListener("scroll", updateState, { passive: true });
+target.addEventListener("input", () => requestAnimationFrame(updateState));
+const applyPosition = (left, top, persist = false) => {
+const inset = 6;
+const maxLeft = Math.max(zone.clientWidth - control.offsetWidth - inset, inset);
+const maxTop = Math.max(zone.clientHeight - control.offsetHeight - inset, inset);
+const nextLeft = Math.min(Math.max(left, inset), maxLeft);
+const nextTop = Math.min(Math.max(top, inset), maxTop);
+control.style.left = `${nextLeft}px`;
+control.style.top = `${nextTop}px`;
+control.style.right = "auto";
+control.style.bottom = "auto";
+control.style.transform = "none";
+if (persist) savePosition(id, { x: nextLeft / Math.max(zone.clientWidth - control.offsetWidth, 1), y: nextTop / Math.max(zone.clientHeight - control.offsetHeight, 1) });
+};
+const restoreDefault = () => {
+delete savedPositions[id];
+try { localStorage.setItem(SCROLL_JUMP_POSITION_KEY, JSON.stringify(savedPositions)); } catch {}
+control.style.removeProperty("left");
+control.style.removeProperty("top");
+control.style.removeProperty("right");
+control.style.removeProperty("bottom");
+control.style.removeProperty("transform");
+};
+let dragState = null;
+handle.addEventListener("pointerdown", event => {
+event.preventDefault();
+const rect = control.getBoundingClientRect();
+const zoneRect = zone.getBoundingClientRect();
+dragState = { pointerId: event.pointerId, offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top, zoneLeft: zoneRect.left, zoneTop: zoneRect.top };
+handle.setPointerCapture(event.pointerId);
+control.classList.add("is-dragging");
+});
+handle.addEventListener("pointermove", event => {
+if (!dragState || event.pointerId !== dragState.pointerId) return;
+applyPosition(event.clientX - dragState.zoneLeft - dragState.offsetX, event.clientY - dragState.zoneTop - dragState.offsetY);
+});
+handle.addEventListener("pointerup", event => {
+if (!dragState || event.pointerId !== dragState.pointerId) return;
+dragState = null;
+control.classList.remove("is-dragging");
+const left = control.offsetLeft;
+const top = control.offsetTop;
+const maxLeft = Math.max(zone.clientWidth - control.offsetWidth, 0);
+const maxTop = Math.max(zone.clientHeight - control.offsetHeight, 0);
+const edges = [{ left: 6, top, d: left }, { left: maxLeft - 6, top, d: maxLeft - left }, { left, top: 6, d: top }, { left, top: maxTop - 6, d: maxTop - top }];
+const nearest = edges.sort((a, b) => a.d - b.d)[0];
+applyPosition(nearest.left, nearest.top, true);
+});
+handle.addEventListener("pointercancel", () => {
+dragState = null;
+control.classList.remove("is-dragging");
+});
+handle.addEventListener("dblclick", restoreDefault);
+handle.addEventListener("keydown", event => {
+if (event.key === "Home") { event.preventDefault(); restoreDefault(); return; }
+const movement = { ArrowLeft: [-12, 0], ArrowRight: [12, 0], ArrowUp: [0, -12], ArrowDown: [0, 12] }[event.key];
+if (!movement) return;
+event.preventDefault();
+const rect = control.getBoundingClientRect();
+const zoneRect = zone.getBoundingClientRect();
+applyPosition(rect.left - zoneRect.left + movement[0], rect.top - zoneRect.top + movement[1], true);
+});
+requestAnimationFrame(() => {
+const saved = savedPositions[id];
+if (saved) applyPosition(saved.x * Math.max(zone.clientWidth - control.offsetWidth, 1), saved.y * Math.max(zone.clientHeight - control.offsetHeight, 1));
+updateState();
+});
+new ResizeObserver(() => { requestAnimationFrame(() => { const saved = savedPositions[id]; if (saved) applyPosition(saved.x * Math.max(zone.clientWidth - control.offsetWidth, 1), saved.y * Math.max(zone.clientHeight - control.offsetHeight, 1)); updateState(); }); }).observe(target);
+new MutationObserver(() => requestAnimationFrame(updateState)).observe(target, { childList: true, subtree: true, characterData: true });
+});
+}
 setupCompactWorkspace();
+setupScrollJumpControls();
 renderHelpLinks();
 window.PriceWorkbench = { parseSections, chooseForTarget, buildDocumentProfile, buildAssignmentCandidates, scoreAssignmentCandidate, findBestAssignmentPlan, REGION_CONFIGS };
 const startupParams = new URLSearchParams(window.location.search);
