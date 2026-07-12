@@ -237,7 +237,62 @@ closeTopMenus();
 menu.hidden = !willOpen;
 button.setAttribute("aria-expanded", String(willOpen));
 }
+function bindCompactWorkspaceEvents() {
+const compactIssueBtn = document.getElementById("compactIssueBtn");
+if (compactIssueBtn && !compactIssueBtn.dataset.bound) {
+compactIssueBtn.dataset.bound = "true";
+compactIssueBtn.addEventListener("click", () => {
+if (problemMode) exitProblemMode(); else enterProblemMode();
+});
+}
+const copyRuleText = document.getElementById("copyRuleText");
+if (copyRuleText && !copyRuleText.dataset.bound) {
+copyRuleText.dataset.bound = "true";
+copyRuleText.addEventListener("click", openCopySettings);
+}
+const configButton = document.getElementById("configSummaryBtn");
+if (configButton && !configButton.dataset.bound) {
+configButton.dataset.bound = "true";
+configButton.addEventListener("click", event => { event.stopPropagation(); toggleTopMenu("configPopover", "configSummaryBtn"); });
+}
+const moreButton = document.getElementById("moreBtn");
+if (moreButton && !moreButton.dataset.bound) {
+moreButton.dataset.bound = "true";
+moreButton.addEventListener("click", event => { event.stopPropagation(); toggleTopMenu("moreMenu", "moreBtn"); });
+}
+const ruleTopButton = document.getElementById("ruleTopBtn");
+if (ruleTopButton && !ruleTopButton.dataset.bound) {
+ruleTopButton.dataset.bound = "true";
+ruleTopButton.addEventListener("click", () => {
+closeTopMenus();
+if (!rulePopover.hidden) closeLayers(); else openLayer(rulePopover, false);
+});
+}
+document.querySelectorAll("[data-more-action]").forEach(button => {
+if (button.dataset.bound) return;
+button.dataset.bound = "true";
+button.addEventListener("click", () => {
+const target = { common: "commonSettingsBtn", copy: "copySettingsBtn", export: "exportExcelBtn", help: "helpBtn", samples: "unlockSamplesBtn" }[button.dataset.moreAction];
+closeTopMenus();
+document.getElementById(target)?.click();
+});
+});
+if (!document.body.dataset.topMenuBound) {
+document.body.dataset.topMenuBound = "true";
+document.addEventListener("pointerdown", event => {
+if (!event.target.closest(".top-popover, #configSummaryBtn, #moreBtn")) closeTopMenus();
+});
+}
+}
 function setupCompactWorkspace() {
+if (document.body.classList.contains("compact-html")) {
+document.getElementById("helpBtn")?.setAttribute("hidden", "");
+document.getElementById("sampleLock")?.setAttribute("hidden", "");
+bindCompactWorkspaceEvents();
+updateConfigSummary();
+rawInput.focus();
+return;
+}
 const topbar = document.querySelector(".topbar");
 const topActions = topbar.querySelector(".top-actions");
 const regionControl = document.querySelector(".region-control");
@@ -290,10 +345,8 @@ compactIssue.className = "compact-issue-banner";
 compactIssue.id = "compactIssueBanner";
 compactIssue.hidden = true;
 compactIssue.innerHTML = `<span id="compactIssueText"></span><button type="button" id="compactIssueBtn">只看问题项</button>`;
-coreSection.insertAdjacentElement("afterend", compactIssue);
-document.getElementById("compactIssueBtn").addEventListener("click", () => {
-if (problemMode) exitProblemMode(); else enterProblemMode();
-});
+copyConsole.insertAdjacentElement("afterend", compactIssue);
+compactIssue.insertAdjacentElement("afterend", coreSection);
 const detailSection = resultPanel.querySelector(".detail-section");
 const detailFold = document.createElement("details");
 detailFold.className = "detail-fold";
@@ -302,20 +355,7 @@ detailSection.replaceWith(detailFold);
 detailFold.appendChild(detailSection);
 const auditDetails = document.getElementById("auditDetails");
 if (auditDetails) detailFold.appendChild(auditDetails);
-document.getElementById("configSummaryBtn").addEventListener("click", event => { event.stopPropagation(); toggleTopMenu("configPopover", "configSummaryBtn"); });
-document.getElementById("moreBtn").addEventListener("click", event => { event.stopPropagation(); toggleTopMenu("moreMenu", "moreBtn"); });
-document.getElementById("ruleTopBtn").addEventListener("click", () => {
-closeTopMenus();
-if (!rulePopover.hidden) closeLayers(); else openLayer(rulePopover, false);
-});
-document.querySelectorAll("[data-more-action]").forEach(button => button.addEventListener("click", () => {
-const target = { common: "commonSettingsBtn", copy: "copySettingsBtn", export: "exportExcelBtn", help: "helpBtn", samples: "unlockSamplesBtn" }[button.dataset.moreAction];
-closeTopMenus();
-document.getElementById(target)?.click();
-}));
-document.addEventListener("pointerdown", event => {
-if (!event.target.closest(".top-popover, #configSummaryBtn, #moreBtn")) closeTopMenus();
-});
+bindCompactWorkspaceEvents();
 updateConfigSummary();
 rawInput.focus();
 }
@@ -453,7 +493,7 @@ resultRows = config.periods.map((period, index) => ({ index, period, selected: s
 parsedSections = [];
 renderResults();
 renderAudit();
-noticeStack.innerHTML = `<div class="notice">已载入 ${config.name} ${config.periods.length} 个全天时段。粘贴 OCR 文本后点击“整理价格”。</div>`;
+noticeStack.innerHTML = `<div class="notice">已载入 ${config.name} ${config.periods.length} 个全天时段。粘贴完整文本后会自动整理。</div>`;
 }
 function analyse() {
 const text = rawInput.value.trim();
@@ -610,11 +650,9 @@ document.getElementById("issueModeText").textContent = `共 ${issues.length} 项
 const copyButton = document.getElementById("copyBtn");
 copyButton.classList.toggle("primary", hasAnalysed && !issues.length);
 const previewNotice = document.getElementById("copyPreviewNotice");
-previewNotice.hidden = !hasAnalysed;
-previewNotice.classList.toggle("success", !issues.length);
-previewNotice.textContent = issues.length
-? "存在需核对项，建议处理后再复制。"
-: "所有时段已确认，可以复制结果。";
+previewNotice.hidden = !hasAnalysed || !issues.length;
+previewNotice.classList.remove("success");
+previewNotice.textContent = issues.length ? "存在需核对项，建议处理后再复制。" : "";
 const compactBanner = document.getElementById("compactIssueBanner");
 if (compactBanner) {
 compactBanner.hidden = !hasAnalysed || !issues.length;
@@ -660,7 +698,7 @@ values: items.map(item => item.value === "" ? "" : Number(item.value).toFixed(4)
 };
 }
 function selectedValues() {
-return previewData(orderedSelectedRows(), getRegionSelection().priceOrder).values;
+return previewData(orderedSelectedRows(), getRegionSelection().priceOrder).values.map(value => value || "待核对");
 }
 function isCustomCopyOrder(order, rows) {
 const selectedIds = rows.map(row => periodId(row.period));
@@ -689,7 +727,7 @@ function updateCopyPreview() {
 const rows = orderedSelectedRows();
 const state = getRegionSelection();
 const data = hasAnalysed ? previewData(rows, state.priceOrder) : { labels: [], values: [] };
-renderPreviewElements(copyLabels, copyPreview, data, hasAnalysed ? "未选择任何时段" : "整理完成后，这里会显示可复制内容。");
+renderPreviewElements(copyLabels, copyPreview, data, hasAnalysed ? "未选择任何时段" : "粘贴文本后，这里会显示可复制结果。");
 document.getElementById("copyRuleText").textContent = `${state.priceOrder === "member-first" ? "会员价" : "非会员价"}在前 · ${isCustomCopyOrder(state.order, rows) ? "自定义顺序" : "按工作顺序"}`;
 }
 function renderCopySettings() {
@@ -853,11 +891,11 @@ window.alert("密钥不正确");
 });
 document.getElementById("loadSampleBtn").addEventListener("click", () => { rawInput.value = SAMPLES[sampleSelect.value]; updateInputCount(); analyse(); });
 document.getElementById("analyseBtn").addEventListener("click", analyse);
-document.getElementById("resetResultBtn").addEventListener("click", analyse);
+document.getElementById("resetResultBtn")?.addEventListener("click", analyse);
 document.getElementById("clearBtn").addEventListener("click", () => { rawInput.value = ""; updateInputCount(); renderEmptyRows(); rawInput.focus(); });
 rawInput.addEventListener("input", () => { updateInputCount(); renderAudit(); });
 rawInput.addEventListener("paste", () => { setTimeout(() => { updateInputCount(); analyse(); }, 0); });
-document.getElementById("detailJumpBtn").addEventListener("click", () => {
+document.getElementById("detailJumpBtn")?.addEventListener("click", () => {
 const details = document.getElementById("auditDetails");
 details.scrollIntoView({ behavior: "smooth", block: "center" });
 });
