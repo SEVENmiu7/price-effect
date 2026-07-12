@@ -2136,3 +2136,9 @@ body.v4 {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* 大标题与下方控件的内容文字基线对齐。 */
+.v4 .input-panel .panel-title,
+.v4 .result-panel .result-heading-line {
+  padding-left: 16px;
+}
