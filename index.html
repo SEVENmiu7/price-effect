@@ -91,10 +91,13 @@
       </div>
 
       <div class="top-popover more-menu" id="moreMenu" hidden>
-        <button type="button" data-more-action="export">导出 Excel</button>
-        <button type="button" data-more-action="timetable">时段表管理</button>
-        <button type="button" data-more-action="help">使用说明</button>
-        <button type="button" data-more-action="samples">内部样例</button>
+        <div class="more-action-grid">
+          <button type="button" class="more-action-card" data-more-action="export"><span class="more-action-icon">⇩</span><span><strong>导出 Excel</strong><small>保存本次价格明细</small></span></button>
+          <button type="button" class="more-action-card accent" data-more-action="timetable"><span class="more-action-icon">⌘</span><span><strong>时段表管理</strong><small>维护地区与月份配置</small></span></button>
+          <button type="button" class="more-action-card" data-more-action="help"><span class="more-action-icon">?</span><span><strong>使用说明</strong><small>查看录入与核对方法</small></span></button>
+        </div>
+        <div class="sample-menu-section">
+          <div class="sample-menu-head"><span><strong>内部样例</strong><small>仅用于内部回归核验</small></span><button type="button" data-more-action="samples">验证密钥</button></div>
         <div class="sample-row" id="sampleTools" hidden>
           <select id="sampleSelect" aria-label="回归样例">
             <option value="actual-fast">实际截图转录：快电价 / VIP 价</option>
@@ -106,6 +109,7 @@
             <option value="history-cross">历史样例：跨多个目标时段</option>
           </select>
           <button type="button" id="loadSampleBtn">载入样例</button>
+        </div>
         </div>
         <div id="sampleLock" hidden>
           <button type="button" class="sample-loader" id="unlockSamplesBtn">解锁内部样例</button>
@@ -200,7 +204,8 @@
 
         <details class="detail-fold">
           <summary>
-            展开详细明细
+            <strong>展开详细明细</strong>
+            <span class="detail-fold-note">默认收起 · 展开后可查看识别依据</span>
             <svg class="icon icon-sm"><use href="#i-chevron-down"></use></svg>
           </summary>
 

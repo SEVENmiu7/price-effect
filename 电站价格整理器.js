@@ -268,6 +268,16 @@ menu.hidden = !willOpen;
 button.setAttribute("aria-expanded", String(willOpen));
 }
 function bindCompactWorkspaceEvents() {
+const detailFold = document.querySelector(".detail-fold");
+if (detailFold && !detailFold.dataset.bound) {
+detailFold.dataset.bound = "true";
+detailFold.addEventListener("toggle", () => {
+const title = detailFold.querySelector(":scope > summary strong");
+const note = detailFold.querySelector(".detail-fold-note");
+if (title) title.textContent = detailFold.open ? "收起详细明细" : "展开详细明细";
+if (note) note.textContent = detailFold.open ? "明细已展开 · 点击可收起" : "默认收起 · 展开后可查看识别依据";
+});
+}
 const compactIssueBtn = document.getElementById("compactIssueBtn");
 if (compactIssueBtn && !compactIssueBtn.dataset.bound) {
 compactIssueBtn.dataset.bound = "true";
@@ -721,15 +731,24 @@ document.getElementById("compactIssueText").textContent = `发现 ${issues.lengt
 document.getElementById("compactIssueBtn").textContent = problemMode ? "查看全部" : "只看问题项";
 }
 }
+function revealDetail(targetId = "issueModeBanner") {
+const detailFold = document.querySelector(".detail-fold");
+if (detailFold) detailFold.open = true;
+requestAnimationFrame(() => {
+const target = document.getElementById(targetId) || detailFold;
+target?.scrollIntoView({ behavior: "smooth", block: "center" });
+});
+}
 function enterProblemMode() {
 if (!getProblemRows().length) return;
 problemMode = true;
 renderResults();
-requestAnimationFrame(() => document.getElementById("issueModeBanner").scrollIntoView({ behavior: "smooth", block: "center" }));
+revealDetail("issueModeBanner");
 }
 function exitProblemMode() {
 problemMode = false;
 renderResults();
+revealDetail("resultBody");
 }
 function renderCommonChoices() {
 const state = getRegionSelection();
@@ -960,19 +979,29 @@ const key = window.prompt("请输入内部样例密钥");
 if (key === INTERNAL_SAMPLE_KEY) {
 document.getElementById("sampleLock").hidden = true;
 document.getElementById("sampleTools").hidden = false;
+const sampleSection = document.querySelector(".sample-menu-section");
+sampleSection?.classList.add("unlocked");
+const sampleNote = sampleSection?.querySelector(".sample-menu-head small");
+if (sampleNote) sampleNote.textContent = "已通过内部密钥验证";
+const verifyButton = sampleSection?.querySelector('[data-more-action="samples"]');
+if (verifyButton) verifyButton.hidden = true;
+const moreMenu = document.getElementById("moreMenu");
+if (moreMenu) {
+moreMenu.hidden = false;
+document.getElementById("moreBtn")?.setAttribute("aria-expanded", "true");
+}
 } else if (key !== null) {
 window.alert("密钥不正确");
 }
 });
-document.getElementById("loadSampleBtn").addEventListener("click", () => { rawInput.value = SAMPLES[sampleSelect.value]; updateInputCount(); analyse(); });
+document.getElementById("loadSampleBtn").addEventListener("click", () => { rawInput.value = SAMPLES[sampleSelect.value]; updateInputCount(); closeTopMenus(); analyse(); });
 document.getElementById("analyseBtn").addEventListener("click", analyse);
 document.getElementById("resetResultBtn")?.addEventListener("click", analyse);
 document.getElementById("clearBtn").addEventListener("click", () => { rawInput.value = ""; updateInputCount(); renderEmptyRows(); rawInput.focus(); });
 rawInput.addEventListener("input", () => { updateInputCount(); renderAudit(); });
 rawInput.addEventListener("paste", () => { setTimeout(() => { updateInputCount(); analyse(); }, 0); });
 document.getElementById("detailJumpBtn")?.addEventListener("click", () => {
-const details = document.getElementById("auditDetails");
-details.scrollIntoView({ behavior: "smooth", block: "center" });
+revealDetail("auditDetails");
 });
 document.getElementById("addPeriodBtn").addEventListener("click", () => { renderCommonChoices(); openLayer(commonModal, true); });
 document.getElementById("exportExcelBtn").addEventListener("click", exportResults);
