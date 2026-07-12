@@ -268,6 +268,22 @@ closeTopMenus();
 if (!rulePopover.hidden) closeLayers(); else openLayer(rulePopover, false);
 });
 }
+const commonTopButton = document.getElementById("commonTopBtn");
+if (commonTopButton && !commonTopButton.dataset.bound) {
+commonTopButton.dataset.bound = "true";
+commonTopButton.addEventListener("click", () => {
+closeTopMenus();
+document.getElementById("commonSettingsBtn")?.click();
+});
+}
+const copyOrderTopButton = document.getElementById("copyOrderTopBtn");
+if (copyOrderTopButton && !copyOrderTopButton.dataset.bound) {
+copyOrderTopButton.dataset.bound = "true";
+copyOrderTopButton.addEventListener("click", () => {
+closeTopMenus();
+document.getElementById("copySettingsBtn")?.click();
+});
+}
 document.querySelectorAll("[data-more-action]").forEach(button => {
 if (button.dataset.bound) return;
 button.dataset.bound = "true";
@@ -298,7 +314,7 @@ const topActions = topbar.querySelector(".top-actions");
 const regionControl = document.querySelector(".region-control");
 const monthControl = document.querySelector(".month-control");
 const helpButton = document.getElementById("helpBtn");
-topActions.innerHTML = `<button type="button" class="top-action-button" id="configSummaryBtn" aria-haspopup="true" aria-expanded="false">${svgIcon("calendar", "icon icon-sm")}<span id="configSummaryText"></span>${svgIcon("chevron-down", "icon icon-sm")}</button><button type="button" class="top-action-button" id="ruleTopBtn">${svgIcon("sliders", "icon icon-sm")}当前取价规则</button><button type="button" class="top-action-button" id="moreBtn" aria-haspopup="true" aria-expanded="false">${svgIcon("plus", "icon icon-sm")}更多设置</button>`;
+topActions.innerHTML = `<button type="button" class="top-action-button" id="configSummaryBtn" aria-haspopup="true" aria-expanded="false">${svgIcon("calendar", "icon icon-sm")}<span id="configSummaryText"></span>${svgIcon("chevron-down", "icon icon-sm")}</button><button type="button" class="top-action-button" id="ruleTopBtn">${svgIcon("sliders", "icon icon-sm")}当前取价规则</button><button type="button" class="top-action-button" id="commonTopBtn">常用时段</button><button type="button" class="top-action-button" id="copyOrderTopBtn">输出顺序</button><button type="button" class="top-action-button" id="moreBtn" aria-haspopup="true" aria-expanded="false">${svgIcon("plus", "icon icon-sm")}更多设置</button>`;
 const configPopover = document.createElement("div");
 configPopover.className = "top-popover config-popover";
 configPopover.id = "configPopover";
@@ -308,7 +324,7 @@ const moreMenu = document.createElement("div");
 moreMenu.className = "top-popover more-menu";
 moreMenu.id = "moreMenu";
 moreMenu.hidden = true;
-moreMenu.innerHTML = `<button type="button" data-more-action="common">常用时段</button><button type="button" data-more-action="copy">输出顺序</button><button type="button" data-more-action="export">导出 Excel</button><button type="button" data-more-action="help">使用说明</button><button type="button" data-more-action="samples">内部样例</button>`;
+moreMenu.innerHTML = `<button type="button" data-more-action="export">导出 Excel</button><button type="button" data-more-action="help">使用说明</button><button type="button" data-more-action="samples">内部样例</button>`;
 topbar.append(configPopover, moreMenu, helpButton);
 helpButton.hidden = true;
 document.getElementById("sampleLock").hidden = true;
@@ -618,9 +634,11 @@ noticeStack.innerHTML = notices.map(item => `<div class="notice ${item.type}">${
 }
 function renderAudit() {
 const text = rawInput.value.trim();
-auditBody.innerHTML = text
-? `<pre class="raw-text-content">${escapeHtml(text)}</pre>`
-: `<div class="raw-text-empty">粘贴文本后，这里显示原始内容。</div>`;
+const preview = document.createElement(text ? "pre" : "div");
+preview.className = text ? "raw-text-content" : "raw-text-empty";
+preview.textContent = text || "粘贴文本后，这里显示原始内容。";
+auditBody.replaceChildren(preview);
+if (text && hasAnalysed) auditBody.closest("details")?.setAttribute("open", "");
 }
 function renderVisibilityControls() {
 const state = getRegionSelection();
@@ -691,10 +709,20 @@ const nonMember = { label: `${row.period.name}非会员价`, value: row.nonMembe
 return priceOrder === "member-first" ? [member, nonMember] : [nonMember, member];
 }
 function previewData(rows, priceOrder) {
-const items = rows.flatMap(row => priceItems(row, priceOrder));
+const groups = rows.map(row => ({
+name: row.period.name,
+range: `${row.period.start}—${row.period.end}`,
+tone: row.period.tone,
+items: priceItems(row, priceOrder).map(item => ({
+label: item.label.replace(row.period.name, ""),
+value: item.value === "" ? "" : Number(item.value).toFixed(4)
+}))
+}));
+const items = groups.flatMap(group => group.items);
 return {
 labels: items.map(item => item.label),
-values: items.map(item => item.value === "" ? "" : Number(item.value).toFixed(4))
+values: items.map(item => item.value),
+groups
 };
 }
 function selectedValues() {
@@ -707,12 +735,13 @@ const workingOrder = [...defaults.filter(id => selectedIds.includes(id)), ...sel
 return order.join("|") !== workingOrder.join("|");
 }
 function renderPreviewElements(labelsElement, valuesElement, data, emptyText) {
-const columnCount = Math.max(data.labels.length, 1);
+const groups = data.groups || [];
+const columnCount = Math.max(groups.length, 1);
 labelsElement.style.setProperty("--copy-count", columnCount);
 valuesElement.style.setProperty("--copy-count", columnCount);
 labelsElement.innerHTML = "";
-valuesElement.innerHTML = data.values.length
-? data.values.map((value, index) => `<span class="copy-price-tile ${value === "" ? "empty-copy-value" : ""}"><small>${escapeHtml(data.labels[index])}</small><strong>${escapeHtml(value || "待核对")}</strong></span>`).join("")
+valuesElement.innerHTML = groups.length
+? groups.map(group => `<section class="copy-period-group tone-${group.tone}"><header><span>${escapeHtml(group.name)}</span><small>${escapeHtml(group.range)}</small></header><div class="copy-period-prices">${group.items.map(item => `<span class="copy-price-tile ${item.value === "" ? "empty-copy-value" : ""}"><small>${escapeHtml(item.label)}</small><strong>${escapeHtml(item.value || "待核对")}</strong></span>`).join("")}</div></section>`).join("")
 : `<span class="copy-empty-state">${escapeHtml(emptyText)}</span>`;
 }
 function moveCopyDraft(id, direction) {
@@ -846,11 +875,10 @@ document.getElementById("inputCount").textContent = rawInput.value.length.toLoca
 function exportResults() {
 const rows = orderedSelectedRows();
 if (!rows.length) return;
-const header = ["时段", "开始时间", "结束时间", "会员价", "非会员价", "状态"];
+const header = ["时段", "时段范围", "会员价", "非会员价", "状态"];
 const body = rows.map(row => [
 row.period.name,
-row.period.start,
-row.period.end,
+`${row.period.start}-${row.period.end}`,
 row.member === "" ? "" : Number(row.member).toFixed(4),
 row.nonMember === "" ? "" : Number(row.nonMember).toFixed(4),
 row.edited ? "人工修改" : ({ ok: "已识别", review: "需核对", missing: "缺失" }[row.status] || "待处理")
