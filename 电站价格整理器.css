@@ -2253,3 +2253,140 @@ body.v4 {
   background: #f0f3f1;
   box-shadow: none;
 }
+
+/* 最终响应式收口：以视口宽度为唯一边界，覆盖历史媒体查询。 */
+@media (max-width: 1020px) {
+  .v4 .input-panel {
+    min-height: 0;
+  }
+
+  .v4 .input-panel > .scroll-jump-zone-y {
+    min-height: 360px;
+  }
+
+  .v4 #rawInput {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  html,
+  body.v4,
+  .v4 .app-shell,
+  .v4 .topbar,
+  .v4 .workspace {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  html,
+  body.v4,
+  .v4 .app-shell {
+    overflow-x: clip;
+  }
+
+  .v4 .topbar {
+    padding: 12px;
+    overflow: hidden;
+  }
+
+  .v4 .brand,
+  .v4 .top-actions,
+  .v4 .top-action-button,
+  .v4 .workspace,
+  .v4 .panel,
+  .v4 .input-panel > .scroll-jump-zone-y,
+  .v4 .input-panel > .input-tools,
+  .v4 .input-actions,
+  .v4 .result-context-bar,
+  .v4 .copy-console,
+  .v4 .copy-content,
+  .v4 .copy-scroll {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .v4 .top-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+  }
+
+  .v4 .top-action-button {
+    width: 100%;
+    padding-inline: 8px;
+  }
+
+  .v4 #configSummaryBtn {
+    grid-column: 1 / -1;
+  }
+
+  .v4 .workspace {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    margin: 12px 0 24px;
+    padding: 0 12px;
+  }
+
+  .v4 .input-panel,
+  .v4 .result-panel {
+    width: 100%;
+    min-height: 0;
+    padding: 16px;
+  }
+
+  .v4 .input-panel > .scroll-jump-zone-y {
+    width: 100%;
+    min-height: 320px;
+    margin: 18px 0 16px;
+  }
+
+  .v4 .input-panel .input-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .v4 .result-context-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .v4 .result-context-summary {
+    width: 100%;
+  }
+
+  .v4 .result-context-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .v4 .result-context-actions button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .v4 .compact-issue-banner {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .v4 .compact-issue-banner button {
+    width: 100%;
+  }
+
+  .v4 .core-price-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .v4 .modal {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    padding: 18px;
+    overflow-y: auto;
+  }
+}
