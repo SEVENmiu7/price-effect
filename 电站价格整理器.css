@@ -1148,31 +1148,34 @@ body.v4 {
 .v4 .sample-row .pretty-select-trigger { min-width: 210px; }
 
 .v4 .time-table-editor {
-  width: min(850px, calc(100vw - 40px));
+  --editor-period-columns: 116px 104px 104px 136px 72px 34px;
+  width: min(680px, calc(100vw - 40px));
 }
 
 .v4 .editor-meta {
-  grid-template-columns: 170px 190px 160px;
+  grid-template-columns: 150px 170px 140px;
   justify-content: start;
 }
 
 .v4 .editor-period-head,
 .v4 .editor-period-row {
   display: grid;
-  grid-template-columns: 148px 92px 92px 108px 88px 40px;
+  grid-template-columns: var(--editor-period-columns);
   gap: 8px;
   align-items: center;
+  width: max-content;
+  max-width: 100%;
 }
 
 .v4 .editor-period-head {
-  padding: 0 10px 6px;
+  padding: 0 9px 6px;
   color: #798181;
   font-size: 11px;
   font-weight: 680;
 }
 
 .v4 .editor-period-row {
-  padding: 8px 10px;
+  padding: 8px;
 }
 
 .v4 .editor-period-row input,
@@ -1181,13 +1184,122 @@ body.v4 {
 }
 
 .v4 .editor-period-row .pretty-select-trigger {
-  min-width: 108px;
+  width: 100%;
+  min-width: 0;
   height: 38px;
+  min-height: 38px;
   gap: 10px;
   padding-inline: 10px;
+  border-radius: 8px;
 }
 
-.v4 .editor-common { height: 38px; }
+.v4 .editor-periods { align-items: start; }
+
+.v4 .editor-common {
+  display: inline-flex !important;
+  flex-direction: row;
+  gap: 7px !important;
+  height: 38px;
+  padding: 0 4px;
+  color: #687273;
+}
+
+.v4 .editor-common input {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.v4 .editor-remove {
+  width: 34px;
+  height: 38px;
+  min-height: 38px;
+  border-radius: 8px;
+}
+
+.v4 .time-picker-field {
+  position: relative;
+  width: 100%;
+}
+
+.v4 .time-picker-field > input {
+  padding-right: 32px;
+  font-variant-numeric: tabular-nums;
+}
+
+.v4 .time-picker-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 32px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 0 8px 8px 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.v4 .time-picker-toggle:hover {
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+.v4 .time-picker-toggle span {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid #768080;
+  border-bottom: 1.5px solid #768080;
+  transform: translateY(-2px) rotate(45deg);
+}
+
+.v4 .time-picker-field.open .time-picker-toggle span {
+  transform: translateY(2px) rotate(225deg);
+}
+
+.v4 .time-picker-menu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 5px);
+  left: 0;
+  width: 100%;
+  max-height: 220px;
+  padding: 5px;
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(54, 39, 31, .16);
+}
+
+.v4 .time-picker-field.open-up .time-picker-menu {
+  top: auto;
+  bottom: calc(100% + 5px);
+}
+
+.v4 .time-picker-option {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  justify-content: flex-start;
+  border: 0;
+  border-radius: 6px;
+  color: #4f5757;
+  background: transparent;
+  box-shadow: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.v4 .time-picker-option:hover,
+.v4 .time-picker-option.active {
+  border-color: transparent;
+  background: var(--accent-soft);
+  box-shadow: none;
+  transform: none;
+}
 
 .v4 #editorUnlock,
 .v4 #editorExport,
@@ -1209,7 +1321,10 @@ body.v4 {
 @media (max-width: 760px) {
   .v4 .editor-meta { grid-template-columns: 1fr; }
   .v4 .editor-period-head { display: none; }
-  .v4 .editor-period-row { grid-template-columns: 1fr 1fr; }
+  .v4 .editor-period-row {
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
   .v4 .sample-row:not([hidden]) { width: 100%; grid-template-columns: 1fr; }
 }
 
@@ -1565,7 +1680,8 @@ body.v4 {
 }
 
 .v4 .copy-period-group.tone-2 { border-top-color: #86a9c8; }
-.v4 .copy-period-group.tone-3 { border-top-color: #8ead91; }
+.v4 .period-glyph.tone-3 { color: #b84232; background: #fff0ed; }
+.v4 .copy-period-group.tone-3 { border-top-color: #c9594b; }
 .v4 .copy-period-group.tone-4 { border-top-color: #df8b5e; }
 .v4 .copy-period-group.tone-5 { border-top-color: #b99a78; }
 

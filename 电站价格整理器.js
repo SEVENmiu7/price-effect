@@ -465,7 +465,7 @@ function svgIcon(name, className = "icon") {
 return `<svg class="${className}" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
 }
 function periodIconName(period) {
-if (period.tone === 4 || /峰/.test(period.name)) return "peak";
+if (period.tone === 4 || period.tone === 3 || /峰|尖/.test(period.name)) return "peak";
 if (/谷/.test(period.name) && period.tone === 1) return "valley";
 if (/谷/.test(period.name)) return "moon";
 return "flat";
@@ -1230,6 +1230,128 @@ if (digits.length === 3) return `0${digits[0]}:${digits.slice(1)}`;
 if (digits.length === 4) return `${digits.slice(0, 2)}:${digits.slice(2)}`;
 return value;
 }
+function isValidClockValue(value, allow24 = false) {
+const match = /^(\d{2}):(\d{2})$/.exec(String(value || ""));
+if (!match) return false;
+const hour = Number(match[1]);
+const minute = Number(match[2]);
+if (minute > 59) return false;
+if (hour === 24) return allow24 && minute === 0;
+return hour >= 0 && hour < 24;
+}
+function enhanceTimeInput(input, options = {}) {
+if (!input || input.dataset.timePicker === "true") return input?.closest(".time-picker-field");
+input.dataset.timePicker = "true";
+input.setAttribute("role", "combobox");
+input.setAttribute("aria-autocomplete", "none");
+input.setAttribute("aria-expanded", "false");
+const wrapper = document.createElement("div");
+wrapper.className = "time-picker-field";
+const menuId = `time-picker-${Math.random().toString(36).slice(2, 9)}`;
+const menu = document.createElement("div");
+menu.id = menuId;
+menu.className = "time-picker-menu";
+menu.setAttribute("role", "listbox");
+menu.hidden = true;
+input.setAttribute("aria-controls", menuId);
+const toggle = document.createElement("button");
+toggle.type = "button";
+toggle.className = "time-picker-toggle";
+toggle.setAttribute("aria-label", `选择${options.allow24 ? "结束" : "开始"}时间`);
+toggle.setAttribute("tabindex", "-1");
+toggle.innerHTML = `<span aria-hidden="true"></span>`;
+input.insertAdjacentElement("beforebegin", wrapper);
+wrapper.append(input, toggle, menu);
+const timeOptions = [];
+for (let minutes = 0; minutes < 24 * 60; minutes += 30) {
+const hour = String(Math.floor(minutes / 60)).padStart(2, "0");
+const minute = String(minutes % 60).padStart(2, "0");
+timeOptions.push(`${hour}:${minute}`);
+}
+if (options.allow24) timeOptions.push("24:00");
+menu.innerHTML = timeOptions.map(time => `<button type="button" class="time-picker-option" role="option" aria-selected="false" data-value="${time}">${time}</button>`).join("");
+const optionButtons = [...menu.querySelectorAll(".time-picker-option")];
+let activeIndex = -1;
+const setActive = index => {
+const visibleIndexes = optionButtons.map((button, buttonIndex) => button.hidden ? -1 : buttonIndex).filter(buttonIndex => buttonIndex >= 0);
+if (!visibleIndexes.length) return;
+const requestedIndex = Math.max(0, Math.min(index, optionButtons.length - 1));
+activeIndex = visibleIndexes.includes(requestedIndex) ? requestedIndex : visibleIndexes.reduce((nearest, buttonIndex) => Math.abs(buttonIndex - requestedIndex) < Math.abs(nearest - requestedIndex) ? buttonIndex : nearest, visibleIndexes[0]);
+optionButtons.forEach((button, buttonIndex) => button.classList.toggle("active", buttonIndex === activeIndex));
+optionButtons[activeIndex]?.scrollIntoView({ block: "nearest" });
+};
+const close = () => {
+menu.hidden = true;
+input.setAttribute("aria-expanded", "false");
+wrapper.classList.remove("open", "open-up");
+activeIndex = -1;
+};
+const open = () => {
+document.querySelectorAll(".time-picker-field.open").forEach(field => {
+if (field !== wrapper) field.dispatchEvent(new CustomEvent("close-time-picker"));
+});
+const minValue = options.getMinValue?.();
+const minMinutes = isValidClockValue(minValue) ? toMin(minValue) : null;
+optionButtons.forEach(button => { button.hidden = minMinutes !== null && toMin(button.dataset.value) <= minMinutes; });
+const selectedIndex = optionButtons.findIndex(button => !button.hidden && button.dataset.value === input.value);
+optionButtons.forEach(button => button.setAttribute("aria-selected", String(button.dataset.value === input.value)));
+menu.hidden = false;
+input.setAttribute("aria-expanded", "true");
+wrapper.classList.add("open");
+const rect = wrapper.getBoundingClientRect();
+wrapper.classList.toggle("open-up", window.innerHeight - rect.bottom < 240 && rect.top > 240);
+setActive(selectedIndex >= 0 ? selectedIndex : 0);
+};
+const choose = value => {
+input.value = value;
+input.dispatchEvent(new Event("change", { bubbles: true }));
+close();
+input.focus();
+};
+wrapper.addEventListener("close-time-picker", close);
+toggle.addEventListener("click", event => {
+event.stopPropagation();
+if (menu.hidden) open(); else close();
+input.focus();
+});
+input.addEventListener("click", open);
+input.addEventListener("keydown", event => {
+if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+event.preventDefault();
+if (menu.hidden) open();
+else {
+const direction = event.key === "ArrowDown" ? 1 : -1;
+let nextIndex = activeIndex + direction;
+while (optionButtons[nextIndex]?.hidden) nextIndex += direction;
+setActive(nextIndex);
+}
+return;
+}
+if (event.key === "Enter" && !menu.hidden && activeIndex >= 0) {
+event.preventDefault();
+choose(optionButtons[activeIndex].dataset.value);
+return;
+}
+if (event.key === "Escape") {
+event.stopPropagation();
+close();
+}
+});
+input.addEventListener("blur", () => {
+setTimeout(() => {
+input.value = normalizeClockValue(input.value);
+if (!wrapper.contains(document.activeElement)) close();
+}, 0);
+});
+menu.addEventListener("mousedown", event => {
+const option = event.target.closest(".time-picker-option");
+if (!option) return;
+event.preventDefault();
+choose(option.dataset.value);
+});
+document.addEventListener("click", event => { if (!wrapper.contains(event.target)) close(); });
+return wrapper;
+}
 function openTimeTableEditor() {
 let editor = document.getElementById("timeTableEditor");
 if (!editor) {
@@ -1239,16 +1361,18 @@ editor.className = "modal time-table-editor";
 editor.hidden = true;
 editor.setAttribute("role", "dialog");
 editor.setAttribute("aria-modal", "true");
-editor.innerHTML = `<div class="drawer-head"><div><div class="eyebrow">内部工具</div><h2>时段表管理</h2><p>编辑后导出正式配置，再提交 Git 并重新部署。</p></div><button type="button" class="icon-button" data-close-layer aria-label="关闭">×</button></div><div class="editor-access" id="editorAccess"><label>内部密钥<input id="editorKey" type="password" autocomplete="off" placeholder="请输入内部样例密钥"></label><button type="button" class="primary" id="editorUnlock">进入管理</button><p id="editorKeyError" hidden>密钥不正确。</p></div><div id="editorContent" hidden><div class="editor-meta"><label>地区标识<input id="editorRegionKey" placeholder="例如 hubei"></label><label>地区名称<input id="editorRegionName" placeholder="例如 湖北"></label><label>生效月份<input id="editorMonth" type="text" inputmode="numeric" maxlength="7" placeholder="2026-06"></label></div><div class="editor-toolbar"><button type="button" id="editorLoadCurrent">载入当前配置</button><button type="button" id="editorNew">空白新建</button><button type="button" id="editorAddPeriod">添加时段</button></div><div class="editor-period-head" aria-hidden="true"><span>时段名称</span><span>开始</span><span>结束</span><span>类型</span><span>默认常用</span><span></span></div><div class="editor-periods" id="editorPeriods"></div><div class="editor-feedback" id="editorFeedback">请完整覆盖 00:00—24:00，且时段不能重叠。</div><div class="modal-footer"><button type="button" id="editorValidate">检查时段表</button><button type="button" class="primary" id="editorExport">导出正式配置</button></div></div>`;
+editor.innerHTML = `<div class="drawer-head"><div><div class="eyebrow">内部工具</div><h2>时段表管理</h2><p>编辑后导出正式配置，再提交 Git 并重新部署。</p></div><button type="button" class="icon-button" data-close-layer aria-label="关闭">×</button></div><div class="editor-access" id="editorAccess"><label>内部密钥<input id="editorKey" type="password" autocomplete="off" placeholder="请输入内部样例密钥"></label><button type="button" class="primary" id="editorUnlock">进入管理</button><p id="editorKeyError" hidden>密钥不正确。</p></div><div id="editorContent" hidden><div class="editor-meta"><label>地区标识<input id="editorRegionKey" placeholder="例如 hubei"></label><label>地区名称<input id="editorRegionName" placeholder="例如 湖北"></label><label>生效月份<input id="editorMonth" type="text" inputmode="numeric" maxlength="7" placeholder="2026-06"></label></div><div class="editor-toolbar"><button type="button" id="editorLoadCurrent">载入当前配置</button><button type="button" id="editorNew">空白新建</button><button type="button" id="editorAddPeriod">添加时段</button></div><div class="editor-period-head" aria-hidden="true"><span>时段名称</span><span>开始</span><span>结束</span><span>价格级别</span><span>常用</span><span></span></div><div class="editor-periods" id="editorPeriods"></div><div class="editor-feedback" id="editorFeedback">名称可自定义；价格级别仅控制配色。请完整覆盖 00:00—24:00，且时段不能重叠。</div><div class="modal-footer"><button type="button" id="editorValidate">检查时段表</button><button type="button" class="primary" id="editorExport">导出正式配置</button></div></div>`;
 document.body.appendChild(editor);
 const rows = editor.querySelector("#editorPeriods");
 const addRow = (period = { name: "平", start: "00:00", end: "24:00", tone: 5 }, selected = false) => {
 const row = document.createElement("div");
 row.className = "editor-period-row";
-row.innerHTML = `<input data-field="name" aria-label="时段名称" value="${escapeHtml(period.name)}"><input data-field="start" aria-label="开始时间" type="text" inputmode="numeric" maxlength="5" value="${period.start}" placeholder="00:00"><input data-field="end" aria-label="结束时间" type="text" inputmode="numeric" maxlength="5" value="${period.end}" placeholder="24:00"><select data-field="tone" aria-label="类型"><option value="1">深谷</option><option value="2">谷</option><option value="4">峰</option><option value="5">平</option></select><label class="editor-common"><input data-field="common" type="checkbox" ${selected ? "checked" : ""}>常用</label><button type="button" class="editor-remove" aria-label="删除时段">×</button>`;
+row.innerHTML = `<input data-field="name" aria-label="时段名称，可自定义" value="${escapeHtml(period.name)}"><input data-field="start" aria-label="开始时间" type="text" inputmode="numeric" maxlength="5" value="${period.start}" placeholder="00:00"><input data-field="end" aria-label="结束时间" type="text" inputmode="numeric" maxlength="5" value="${period.end}" placeholder="24:00"><select data-field="tone" aria-label="价格级别，仅控制配色"><option value="1">深谷</option><option value="2">低谷</option><option value="5">平段</option><option value="4">高峰</option><option value="3">尖峰</option></select><label class="editor-common"><input data-field="common" type="checkbox" ${selected ? "checked" : ""}><span>常用</span></label><button type="button" class="editor-remove" aria-label="删除时段">×</button>`;
 row.querySelector('[data-field="tone"]').value = String(period.tone || 5);
 enhancePrettySelect(row.querySelector('[data-field="tone"]'), { compact: true });
-row.querySelectorAll('[data-field="start"], [data-field="end"]').forEach(input => input.addEventListener("blur", () => { input.value = normalizeClockValue(input.value); }));
+const startInput = row.querySelector('[data-field="start"]');
+enhanceTimeInput(startInput);
+enhanceTimeInput(row.querySelector('[data-field="end"]'), { allow24: true, getMinValue: () => startInput.value });
 row.querySelector(".editor-remove").addEventListener("click", () => row.remove());
 rows.appendChild(row);
 };
@@ -1270,12 +1394,14 @@ const errors = [];
 if (!data.key || !data.name || !/^\d{4}-\d{2}$/.test(data.month)) errors.push("请填写地区标识、地区名称和生效月份");
 if (!data.periods.length) errors.push("至少添加一个时段");
 const ordered = [...data.periods].sort((a, b) => toMin(a.start) - toMin(b.start));
-ordered.forEach((period, index) => { if (!period.name || !/^\d{2}:\d{2}$/.test(period.start) || !/^\d{2}:\d{2}$/.test(period.end) || toMin(period.end) <= toMin(period.start)) errors.push(`第 ${index + 1} 个时段内容或时间不合法`); if (index && toMin(period.start) !== toMin(ordered[index - 1].end)) errors.push(`${ordered[index - 1].end} 与 ${period.start} 之间存在遗漏或重叠`); });
+ordered.forEach((period, index) => { if (!period.name || !isValidClockValue(period.start) || !isValidClockValue(period.end, true) || toMin(period.end) <= toMin(period.start)) errors.push(`第 ${index + 1} 个时段内容或时间不合法`); if (index && toMin(period.start) !== toMin(ordered[index - 1].end)) errors.push(`${ordered[index - 1].end} 与 ${period.start} 之间存在遗漏或重叠`); });
 if (ordered.length && (ordered[0].start !== "00:00" || ordered.at(-1).end !== "24:00")) errors.push("时段表必须完整覆盖 00:00—24:00");
 if (!data.periods.some(period => period.common)) errors.push("至少选择一个默认常用时段");
 return [...new Set(errors)];
 };
-editor.querySelector("#editorUnlock").addEventListener("click", () => { const ok = editor.querySelector("#editorKey").value === INTERNAL_SAMPLE_KEY; editor.querySelector("#editorKeyError").hidden = ok; if (ok) { editor.querySelector("#editorAccess").hidden = true; editor.querySelector("#editorContent").hidden = false; loadConfig(); } });
+const unlockEditor = () => { const ok = editor.querySelector("#editorKey").value === INTERNAL_SAMPLE_KEY; editor.querySelector("#editorKeyError").hidden = ok; if (ok) { editor.querySelector("#editorAccess").hidden = true; editor.querySelector("#editorContent").hidden = false; loadConfig(); } };
+editor.querySelector("#editorUnlock").addEventListener("click", unlockEditor);
+editor.querySelector("#editorKey").addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); unlockEditor(); } });
 editor.querySelector("#editorLoadCurrent").addEventListener("click", () => loadConfig());
 editor.querySelector("#editorNew").addEventListener("click", () => { editor.querySelector("#editorRegionKey").value = ""; editor.querySelector("#editorRegionName").value = ""; editor.querySelector("#editorMonth").value = ""; rows.innerHTML = ""; addRow(); });
 editor.querySelector("#editorAddPeriod").addEventListener("click", () => addRow({ name: "平", start: "00:00", end: "24:00", tone: 5 }));
