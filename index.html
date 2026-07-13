@@ -60,12 +60,6 @@
           <svg class="icon icon-sm"><use href="#i-sliders"></use></svg>
           当前取价规则
         </button>
-        <button type="button" class="top-action-button" id="commonTopBtn">
-          常用时段
-        </button>
-        <button type="button" class="top-action-button" id="copyOrderTopBtn">
-          输出顺序
-        </button>
         <button type="button" class="top-action-button" id="moreBtn" aria-haspopup="true" aria-expanded="false">
           <svg class="icon icon-sm"><use href="#i-plus"></use></svg>
           更多设置
@@ -167,13 +161,30 @@
           <button type="button" class="detail-jump" id="detailJumpBtn" hidden>查看原始文本</button>
         </div>
 
+        <div class="result-context-bar" aria-label="复制设置">
+          <div class="result-context-summary">
+            <span>复制设置</span>
+            <strong id="copyRuleText">非会员价在前 · 按工作顺序</strong>
+          </div>
+          <div class="result-context-actions">
+            <button type="button" id="commonSettingsBtn">常用时段</button>
+            <button type="button" id="copySettingsBtn">调整顺序</button>
+          </div>
+        </div>
+
         <div class="recognition-cards" id="recognitionCards" hidden></div>
+
+        <div class="notice-stack result-notice-stack" id="noticeStack" aria-live="polite"></div>
+
+        <div class="compact-issue-banner" id="compactIssueBanner" hidden>
+          <span id="compactIssueText"></span>
+          <button type="button" id="compactIssueBtn">只看问题项</button>
+        </div>
 
         <section class="copy-console" aria-label="复制结果预览">
           <div class="copy-content">
             <div class="copy-console-head">
               <strong>当前复制内容</strong>
-              <small id="copyRuleText">非会员价在前 · 按工作顺序</small>
             </div>
             <div class="copy-preview-notice" id="copyPreviewNotice" hidden></div>
             <div class="copy-scroll">
@@ -188,11 +199,6 @@
             复制结果
           </button>
         </section>
-
-        <div class="compact-issue-banner" id="compactIssueBanner" hidden>
-          <span id="compactIssueText"></span>
-          <button type="button" id="compactIssueBtn">只看问题项</button>
-        </div>
 
         <section class="core-price-section" id="corePriceSection" hidden>
           <div class="core-price-head">
@@ -221,7 +227,6 @@
                   </label>
                   <span class="panel-note" id="hiddenPeriodMeta"></span>
                 </div>
-                <button type="button" class="secondary" id="commonSettingsBtn">设置常用时段</button>
                 <span class="panel-note" id="visiblePeriodMeta">显示全部时段</span>
               </div>
             </div>
@@ -274,11 +279,6 @@
         <div class="result-bottom">
           <button type="button" class="add-period" id="addPeriodBtn">添加时段</button>
           <div class="result-bottom-actions">
-            <button type="button" class="copy-settings" id="copySettingsBtn" aria-label="设置输出顺序">
-              <svg class="icon"><use href="#i-sliders"></use></svg>
-              <span class="spark spark-one">✦</span>
-              <span class="spark spark-two">·</span>
-            </button>
             <button type="button" class="primary issue-action" id="issueActionBtn" hidden>处理问题</button>
             <button type="button" id="exportExcelBtn">导出 Excel</button>
           </div>
@@ -296,7 +296,6 @@
             <div class="legend-row"><span class="legend-dot blue"></span><span>需核对</span><b id="reviewCount">0</b></div>
             <div class="legend-row"><span class="legend-dot gray"></span><span>缺失</span><b id="missingCount">0</b></div>
           </div>
-          <div class="notice-stack" id="noticeStack" aria-live="polite"></div>
         </section>
         <section class="rail-card info-card">
           <h2>识别说明</h2>

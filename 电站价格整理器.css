@@ -2142,3 +2142,70 @@ body.v4 {
 .v4 .result-panel .result-heading-line {
   padding-left: 16px;
 }
+
+/* 结果相关设置跟随复制内容，避免与顶部全局配置争夺注意力。 */
+.v4 .result-context-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-width: 0;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fcfdfb;
+}
+
+.v4 .result-context-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.v4 .result-context-summary > span {
+  flex: none;
+  color: #3f4748;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.v4 .result-context-summary > strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v4 .result-context-actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
+.v4 .result-context-actions button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  color: #596264;
+  background: #fff;
+  font-size: 12px;
+}
+
+.v4 .result-context-actions button:hover,
+.v4 .result-context-actions button.setting-saved {
+  border-color: #ffc39f;
+  color: var(--brand-strong);
+  background: #fff8f3;
+  box-shadow: none;
+  transform: none;
+}
+
+.v4 .detail-toolbar .result-actions {
+  grid-template-columns: minmax(0, 226px) auto;
+}

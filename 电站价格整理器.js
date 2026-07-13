@@ -285,11 +285,6 @@ compactIssueBtn.addEventListener("click", () => {
 if (problemMode) exitProblemMode(); else enterProblemMode();
 });
 }
-const copyRuleText = document.getElementById("copyRuleText");
-if (copyRuleText && !copyRuleText.dataset.bound) {
-copyRuleText.dataset.bound = "true";
-copyRuleText.addEventListener("click", openCopySettings);
-}
 const configButton = document.getElementById("configSummaryBtn");
 if (configButton && !configButton.dataset.bound) {
 configButton.dataset.bound = "true";
@@ -306,22 +301,6 @@ ruleTopButton.dataset.bound = "true";
 ruleTopButton.addEventListener("click", () => {
 closeTopMenus();
 if (!rulePopover.hidden) closeLayers(); else openLayer(rulePopover, false);
-});
-}
-const commonTopButton = document.getElementById("commonTopBtn");
-if (commonTopButton && !commonTopButton.dataset.bound) {
-commonTopButton.dataset.bound = "true";
-commonTopButton.addEventListener("click", () => {
-closeTopMenus();
-document.getElementById("commonSettingsBtn")?.click();
-});
-}
-const copyOrderTopButton = document.getElementById("copyOrderTopBtn");
-if (copyOrderTopButton && !copyOrderTopButton.dataset.bound) {
-copyOrderTopButton.dataset.bound = "true";
-copyOrderTopButton.addEventListener("click", () => {
-closeTopMenus();
-document.getElementById("copySettingsBtn")?.click();
 });
 }
 document.querySelectorAll("[data-more-action]").forEach(button => {
@@ -355,7 +334,7 @@ const topActions = topbar.querySelector(".top-actions");
 const regionControl = document.querySelector(".region-control");
 const monthControl = document.querySelector(".month-control");
 const helpButton = document.getElementById("helpBtn");
-topActions.innerHTML = `<button type="button" class="top-action-button" id="configSummaryBtn" aria-haspopup="true" aria-expanded="false">${svgIcon("calendar", "icon icon-sm")}<span id="configSummaryText"></span>${svgIcon("chevron-down", "icon icon-sm")}</button><button type="button" class="top-action-button" id="ruleTopBtn">${svgIcon("sliders", "icon icon-sm")}当前取价规则</button><button type="button" class="top-action-button" id="commonTopBtn">常用时段</button><button type="button" class="top-action-button" id="copyOrderTopBtn">输出顺序</button><button type="button" class="top-action-button" id="moreBtn" aria-haspopup="true" aria-expanded="false">${svgIcon("plus", "icon icon-sm")}更多设置</button>`;
+topActions.innerHTML = `<button type="button" class="top-action-button" id="configSummaryBtn" aria-haspopup="true" aria-expanded="false">${svgIcon("calendar", "icon icon-sm")}<span id="configSummaryText"></span>${svgIcon("chevron-down", "icon icon-sm")}</button><button type="button" class="top-action-button" id="ruleTopBtn">${svgIcon("sliders", "icon icon-sm")}当前取价规则</button><button type="button" class="top-action-button" id="moreBtn" aria-haspopup="true" aria-expanded="false">${svgIcon("plus", "icon icon-sm")}更多设置</button>`;
 const configPopover = document.createElement("div");
 configPopover.className = "top-popover config-popover";
 configPopover.id = "configPopover";
@@ -390,7 +369,6 @@ const copyConsole = resultPanel.querySelector(".copy-console");
 resultPanel.insertBefore(copyConsole, resultPanel.querySelector(".detail-section"));
 copyConsole.querySelector(".copy-console-head strong").textContent = "当前复制内容";
 copyConsole.appendChild(document.getElementById("copyBtn"));
-document.getElementById("copyRuleText").addEventListener("click", openCopySettings);
 const coreSection = document.createElement("section");
 coreSection.className = "core-price-section";
 coreSection.id = "corePriceSection";
@@ -579,7 +557,7 @@ grid.innerHTML = "";
 return;
 }
 const rows = orderedSelectedRows();
-grid.innerHTML = rows.length ? rows.map(row => `<div class="core-price-row" data-row-index="${row.index}"><div class="core-period"><strong>${escapeHtml(row.period.name)}<span>（${row.period.start}—${row.period.end}）</span></strong></div><label><span>非会员价</span><input class="core-price-input" data-kind="nonMember" inputmode="decimal" value="${row.nonMember !== "" ? Number(row.nonMember).toFixed(4) : ""}" placeholder="待核对"></label><label><span>会员价</span><input class="core-price-input" data-kind="member" inputmode="decimal" value="${row.member !== "" ? Number(row.member).toFixed(4) : ""}" placeholder="待核对"></label></div>`).join("") : `<div class="core-price-empty">当前没有选择复制时段，请到顶栏“常用时段”中进行设置。</div>`;
+grid.innerHTML = rows.length ? rows.map(row => `<div class="core-price-row" data-row-index="${row.index}"><div class="core-period"><strong>${escapeHtml(row.period.name)}<span>（${row.period.start}—${row.period.end}）</span></strong></div><label><span>非会员价</span><input class="core-price-input" data-kind="nonMember" inputmode="decimal" value="${row.nonMember !== "" ? Number(row.nonMember).toFixed(4) : ""}" placeholder="待核对"></label><label><span>会员价</span><input class="core-price-input" data-kind="member" inputmode="decimal" value="${row.member !== "" ? Number(row.member).toFixed(4) : ""}" placeholder="待核对"></label></div>`).join("") : `<div class="core-price-empty">当前没有选择复制时段，请在上方“复制设置”中选择常用时段。</div>`;
 grid.querySelectorAll(".core-price-row").forEach(element => {
 const row = resultRows[Number(element.dataset.rowIndex)];
 element.querySelectorAll(".core-price-input").forEach(input => {
@@ -854,11 +832,11 @@ persistRegionState();
 closeLayers();
 updateCopyPreview();
 updateIssueControls();
-const gear = document.getElementById("copySettingsBtn");
-gear.classList.remove("sparkle");
-void gear.offsetWidth;
-gear.classList.add("sparkle");
-setTimeout(() => gear.classList.remove("sparkle"), 1500);
+const settingButton = document.getElementById("copySettingsBtn");
+settingButton?.classList.remove("setting-saved");
+if (settingButton) void settingButton.offsetWidth;
+settingButton?.classList.add("setting-saved");
+setTimeout(() => settingButton?.classList.remove("setting-saved"), 1200);
 }
 function positionRulePopover() {
 if (rulePopover.hidden) return;
