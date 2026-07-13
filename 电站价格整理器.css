@@ -1148,20 +1148,37 @@ body.v4 {
 .v4 .sample-row .pretty-select-trigger { min-width: 210px; }
 
 .v4 .time-table-editor {
-  --editor-period-columns: 116px 104px 104px 136px 72px 34px;
-  width: min(680px, calc(100vw - 40px));
+  --editor-period-columns: 84px 82px 82px 105px 58px 32px;
+  width: min(620px, calc(100vw - 40px));
 }
 
-.v4 .editor-meta {
-  grid-template-columns: 150px 170px 140px;
-  justify-content: start;
+.v4 .editor-config-row {
+  display: grid;
+  grid-template-columns: 110px 78px 92px 100px 76px 76px;
+  gap: 7px;
+  align-items: end;
+  width: max-content;
+  max-width: 100%;
+  margin: 18px 0 14px;
+}
+
+.v4 .editor-meta,
+.v4 .editor-toolbar {
+  display: contents;
+}
+
+.v4 .editor-config-row button {
+  min-height: 40px;
+  padding: 0 9px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .v4 .editor-period-head,
 .v4 .editor-period-row {
   display: grid;
   grid-template-columns: var(--editor-period-columns);
-  gap: 8px;
+  gap: 7px;
   align-items: center;
   width: max-content;
   max-width: 100%;
@@ -1193,6 +1210,11 @@ body.v4 {
   border-radius: 8px;
 }
 
+.v4 .editor-period-row .pretty-select {
+  width: 100%;
+  min-width: 0;
+}
+
 .v4 .editor-periods { align-items: start; }
 
 .v4 .editor-common {
@@ -1210,7 +1232,7 @@ body.v4 {
 }
 
 .v4 .editor-remove {
-  width: 34px;
+  width: 32px;
   height: 38px;
   min-height: 38px;
   border-radius: 8px;
@@ -1319,13 +1341,19 @@ body.v4 {
 }
 
 @media (max-width: 760px) {
-  .v4 .editor-meta { grid-template-columns: 1fr; }
+  .v4 .sample-row:not([hidden]) { width: 100%; grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .v4 .editor-config-row {
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
   .v4 .editor-period-head { display: none; }
   .v4 .editor-period-row {
     grid-template-columns: 1fr 1fr;
     width: 100%;
   }
-  .v4 .sample-row:not([hidden]) { width: 100%; grid-template-columns: 1fr; }
 }
 
 /* 统一阅读层级，并落实紧凑的更多设置面板。 */
