@@ -44,6 +44,8 @@ Parsing changes must model time blocks and price groups explicitly. Never classi
 
 No test framework is configured. After parser changes, run every built-in and historical sample, including formulas, cross-period ranges, mixed groups, and repeated labels. Verify this copy order: 晚谷非会员、晚谷会员、中谷非会员、中谷会员、平非会员、平会员. Single-price periods must show a review warning.
 
+Browser tests may keep final screenshots and minimal test fixtures under `.audit/`. Put Chrome user-data directories, browser profiles, caches, and temporary databases under the system temporary directory, then remove them after the run. Never store browser profiles inside the repository.
+
 ## Commit & Pull Request Guidelines
 
 Use short Chinese, action-oriented commit subjects, such as `修正跨时段价格归属`. Keep commits focused. Pull requests should explain affected rules, list regression samples, include screenshots for UI changes, and note remaining review cases.
