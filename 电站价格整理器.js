@@ -379,7 +379,9 @@ const compactIssue = document.createElement("div");
 compactIssue.className = "compact-issue-banner";
 compactIssue.id = "compactIssueBanner";
 compactIssue.hidden = true;
-compactIssue.innerHTML = `<span id="compactIssueText"></span><button type="button" id="compactIssueBtn">只看问题项</button>`;
+compactIssue.setAttribute("role", "alert");
+compactIssue.setAttribute("aria-live", "assertive");
+compactIssue.innerHTML = `<div class="compact-issue-main"><div class="compact-issue-heading"><span class="compact-issue-icon">${svgIcon("alert-circle")}</span><div><strong id="compactIssueTitle">发现待核对项</strong><span id="compactIssueText">请逐项确认后再复制。</span></div></div><button type="button" id="compactIssueBtn">开始处理</button></div><div class="compact-issue-list" id="compactIssueList" role="list" aria-label="待核对问题"></div>`;
 copyConsole.insertAdjacentElement("afterend", compactIssue);
 compactIssue.insertAdjacentElement("afterend", coreSection);
 const detailSection = resultPanel.querySelector(".detail-section");
@@ -477,6 +479,12 @@ if (row.member === "" || row.nonMember === "") return "missing";
 if (row.edited) return "ok";
 return row.status;
 }
+function getIssueReason(row) {
+const displayStatus = rowDisplayStatus(row);
+if (displayStatus === "review") return row.note || "当前价格需要对照原始文本确认。";
+if (displayStatus === "missing") return "未识别到该时段价格，需要手动补充。";
+return "";
+}
 function renderDashboardSummary() {
 const total = resultRows.length;
 const recognized = resultRows.filter(row => rowDisplayStatus(row) === "ok").length;
@@ -557,7 +565,13 @@ grid.innerHTML = "";
 return;
 }
 const rows = orderedSelectedRows();
-grid.innerHTML = rows.length ? rows.map(row => `<div class="core-price-row" data-row-index="${row.index}"><div class="core-period"><strong>${escapeHtml(row.period.name)}<span>（${row.period.start}—${row.period.end}）</span></strong></div><label><span>非会员价</span><input class="core-price-input" data-kind="nonMember" inputmode="decimal" value="${row.nonMember !== "" ? Number(row.nonMember).toFixed(4) : ""}" placeholder="待核对"></label><label><span>会员价</span><input class="core-price-input" data-kind="member" inputmode="decimal" value="${row.member !== "" ? Number(row.member).toFixed(4) : ""}" placeholder="待核对"></label></div>`).join("") : `<div class="core-price-empty">当前没有选择复制时段，请在上方“复制设置”中选择常用时段。</div>`;
+grid.innerHTML = rows.length ? rows.map(row => {
+const displayStatus = rowDisplayStatus(row);
+const isProblem = displayStatus !== "ok";
+const statusLabel = displayStatus === "missing" ? "缺失" : "需核对";
+const issueIcon = displayStatus === "missing" ? "alert-circle" : "peak";
+return `<div class="core-price-row ${isProblem ? `core-issue core-issue-${displayStatus}` : ""}" data-row-index="${row.index}"><div class="core-period"><strong>${escapeHtml(row.period.name)}<span>（${row.period.start}—${row.period.end}）</span></strong>${isProblem ? `<span class="core-status ${displayStatus}">${svgIcon(issueIcon, "icon icon-sm")}${statusLabel}</span>` : ""}</div><label><span>非会员价</span><input class="core-price-input ${row.nonMember === "" ? "field-missing" : ""}" data-kind="nonMember" inputmode="decimal" value="${row.nonMember !== "" ? Number(row.nonMember).toFixed(4) : ""}" placeholder="${row.nonMember === "" ? "缺失" : "待核对"}"></label><label><span>会员价</span><input class="core-price-input ${row.member === "" ? "field-missing" : ""}" data-kind="member" inputmode="decimal" value="${row.member !== "" ? Number(row.member).toFixed(4) : ""}" placeholder="${row.member === "" ? "缺失" : "待核对"}"></label>${isProblem ? `<div class="core-price-issue ${displayStatus}">${svgIcon(issueIcon, "icon icon-sm")}<span>${escapeHtml(getIssueReason(row))}</span></div>` : ""}</div>`;
+}).join("") : `<div class="core-price-empty">当前没有选择复制时段，请在上方“复制设置”中选择常用时段。</div>`;
 grid.querySelectorAll(".core-price-row").forEach(element => {
 const row = resultRows[Number(element.dataset.rowIndex)];
 element.querySelectorAll(".core-price-input").forEach(input => {
@@ -585,9 +599,7 @@ const displayStatus = rowDisplayStatus(row);
 const isProblem = hasAnalysed && displayStatus !== "ok";
 const statusClass = row.edited && !isProblem ? "manual" : displayStatus;
 const statusText = row.edited && !isProblem ? "人工修改" : ({ ok: "已识别", review: "需核对", missing: "缺失" }[displayStatus] || "待处理");
-const reason = displayStatus === "review"
-? (row.note || "当前价格需要对照原始文本确认。")
-: "未识别到该时段价格，请手动补充。";
+const reason = getIssueReason(row);
 return `<tr data-row-index="${row.index}" data-period-id="${escapeHtml(periodId(row.period))}" class="${row.edited?"edited ":""}${isProblem?`issue-row issue-${displayStatus}`:""}">
 <td><div class="row-control"><span class="row-number">${row.index + 1}</span><input type="checkbox" class="row-select" ${row.selected ? "checked" : ""} aria-label="选择${escapeHtml(row.period.name)}${row.period.start}-${row.period.end}"></div></td>
 <td class="period-cell"><strong><span class="period-glyph tone-${row.period.tone}">${svgIcon(periodIconName(row.period), "icon icon-sm")}</span>${escapeHtml(row.period.name)}</strong><span>${row.period.start}—${row.period.end}</span></td>
@@ -704,16 +716,28 @@ const canCopy = hasAnalysed && selectedRows.length > 0;
 copyButton.disabled = !canCopy;
 copyButton.classList.toggle("primary", canCopy && !selectedIssues.length);
 copyButton.classList.toggle("has-issues", canCopy && selectedIssues.length > 0);
-const copyLabel = !hasAnalysed ? "暂无可复制结果" : (!selectedRows.length ? "请先选择时段" : (selectedIssues.length ? "仍要复制" : "复制结果"));
+const copyLabel = !hasAnalysed ? "暂无可复制结果" : (!selectedRows.length ? "请先选择时段" : (selectedIssues.length ? "确认仍要复制" : "复制结果"));
 copyButton.innerHTML = `${svgIcon("copy")} ${copyLabel}`;
 const compactBanner = document.getElementById("compactIssueBanner");
 if (compactBanner) {
 compactBanner.hidden = !hasAnalysed || !issues.length;
 compactBanner.classList.toggle("info-only", !selectedIssues.length);
+compactBanner.setAttribute("role", selectedIssues.length ? "alert" : "status");
+compactBanner.setAttribute("aria-live", selectedIssues.length ? "assertive" : "polite");
+document.getElementById("compactIssueTitle").textContent = selectedIssues.length
+? `发现 ${selectedIssues.length} 个待核对项`
+: "本次复制内容完整";
 document.getElementById("compactIssueText").textContent = selectedIssues.length
-? `本次复制包含 ${selectedIssues.length} 个待核对项${unselectedIssueCount ? `；另有 ${unselectedIssueCount} 个未选时段存在问题` : ""}。`
-: `本次复制内容完整；另有 ${issues.length} 个未选时段待核对。`;
-document.getElementById("compactIssueBtn").textContent = problemMode ? "查看全部" : "只看问题项";
+? `请逐项确认后再复制${unselectedIssueCount ? `；另有 ${unselectedIssueCount} 个未选时段存在问题` : ""}。`
+: `另有 ${issues.length} 个未选时段待核对。`;
+const listedIssues = selectedIssues.length ? selectedIssues : issues;
+document.getElementById("compactIssueList").innerHTML = listedIssues.map(row => {
+const displayStatus = rowDisplayStatus(row);
+const statusLabel = displayStatus === "missing" ? "缺失" : "需核对";
+const issueIcon = displayStatus === "missing" ? "alert-circle" : "peak";
+return `<div class="compact-issue-row ${displayStatus}" role="listitem"><span class="compact-row-icon">${svgIcon(issueIcon, "icon icon-sm")}</span><strong>${escapeHtml(row.period.name)}</strong><small>${row.period.start}—${row.period.end}</small><span class="compact-row-reason">${escapeHtml(getIssueReason(row))}</span><em>${statusLabel}</em></div>`;
+}).join("");
+document.getElementById("compactIssueBtn").textContent = problemMode ? "查看全部" : (selectedIssues.length ? "开始处理" : "查看问题");
 }
 }
 function revealDetail(targetId = "issueModeBanner") {
@@ -760,6 +784,8 @@ const groups = rows.map(row => ({
 name: row.period.name,
 range: `${row.period.start}—${row.period.end}`,
 tone: row.period.tone,
+status: rowDisplayStatus(row),
+reason: getIssueReason(row),
 items: priceItems(row, priceOrder).map(item => ({
 label: item.label.replace(row.period.name, ""),
 value: item.value === "" ? "" : Number(item.value).toFixed(4)
@@ -788,7 +814,12 @@ labelsElement.style.setProperty("--copy-count", columnCount);
 valuesElement.style.setProperty("--copy-count", columnCount);
 labelsElement.innerHTML = "";
 valuesElement.innerHTML = groups.length
-? groups.map(group => `<section class="copy-period-group tone-${group.tone}"><header><span>${escapeHtml(group.name)}</span><small>${escapeHtml(group.range)}</small></header><div class="copy-period-prices">${group.items.map(item => `<span class="copy-price-tile ${item.value === "" ? "empty-copy-value" : ""}"><small>${escapeHtml(item.label)}</small><strong>${escapeHtml(item.value || "待核对")}</strong></span>`).join("")}</div></section>`).join("")
+? groups.map(group => {
+const isProblem = group.status && group.status !== "ok";
+const statusLabel = group.status === "missing" ? "缺失" : "需核对";
+const issueIcon = group.status === "missing" ? "alert-circle" : "peak";
+return `<section class="copy-period-group tone-${group.tone} ${isProblem ? `copy-issue copy-issue-${group.status}` : ""}"><header><span>${escapeHtml(group.name)}</span><div><small>${escapeHtml(group.range)}</small>${isProblem ? `<em class="copy-status ${group.status}">${svgIcon(issueIcon, "icon icon-sm")}${statusLabel}</em>` : ""}</div></header><div class="copy-period-prices">${group.items.map(item => `<span class="copy-price-tile ${item.value === "" ? "empty-copy-value" : ""}"><small>${escapeHtml(item.label)}</small><strong>${escapeHtml(item.value || (group.status === "missing" ? "缺失" : "待核对"))}</strong></span>`).join("")}</div>${isProblem ? `<div class="copy-period-issue ${group.status}">${svgIcon(issueIcon, "icon icon-sm")}<span>${escapeHtml(group.reason)}</span></div>` : ""}</section>`;
+}).join("")
 : `<span class="copy-empty-state">${escapeHtml(emptyText)}</span>`;
 }
 function moveCopyDraft(id, direction) {

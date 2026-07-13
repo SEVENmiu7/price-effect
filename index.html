@@ -27,6 +27,7 @@
       <symbol id="i-flat" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M8 12h8"/></symbol>
       <symbol id="i-valley" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v9M8.5 12.5 12 16l3.5-3.5"/></symbol>
       <symbol id="i-peak" viewBox="0 0 24 24"><path d="M12 4 21 20H3L12 4Z"/><path d="M12 9v5M12 17h.01"/></symbol>
+      <symbol id="i-alert-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v6M12 17h.01"/></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></symbol>
       <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
       <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M6 20c.7-4 3-6 6-6s5.3 2 6 6"/></symbol>
@@ -176,9 +177,18 @@
 
         <div class="notice-stack result-notice-stack" id="noticeStack" aria-live="polite"></div>
 
-        <div class="compact-issue-banner" id="compactIssueBanner" hidden>
-          <span id="compactIssueText"></span>
-          <button type="button" id="compactIssueBtn">只看问题项</button>
+        <div class="compact-issue-banner" id="compactIssueBanner" role="alert" aria-live="assertive" hidden>
+          <div class="compact-issue-main">
+            <div class="compact-issue-heading">
+              <span class="compact-issue-icon"><svg class="icon"><use href="#i-alert-circle"></use></svg></span>
+              <div>
+                <strong id="compactIssueTitle">发现待核对项</strong>
+                <span id="compactIssueText">请逐项确认后再复制。</span>
+              </div>
+            </div>
+            <button type="button" id="compactIssueBtn">开始处理</button>
+          </div>
+          <div class="compact-issue-list" id="compactIssueList" role="list" aria-label="待核对问题"></div>
         </div>
 
         <section class="copy-console" aria-label="复制结果预览">

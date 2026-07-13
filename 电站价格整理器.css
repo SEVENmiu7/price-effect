@@ -13,6 +13,339 @@ body.v4 {
   overflow-x: hidden;
 }
 
+/* 2026-07-13：异常结果使用明确的危险色、逐项原因和处理优先操作。 */
+.v4 {
+  --danger: #d92d20;
+  --danger-strong: #b42318;
+  --danger-soft: #fef3f2;
+  --danger-border: #fda29b;
+  --review: #b86a0b;
+  --review-soft: #fff7ed;
+  --review-border: #fdba74;
+}
+
+.v4 .compact-issue-banner {
+  display: block;
+  margin: 0 0 14px;
+  padding: 0;
+  overflow: hidden;
+  color: #51201b;
+  background: #fffafa;
+  border: 1px solid var(--danger-border);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.v4 .compact-issue-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 14px;
+  background: var(--danger-soft);
+}
+
+.v4 .compact-issue-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.v4 .compact-issue-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  color: #fff;
+  background: var(--danger);
+  border-radius: 50%;
+}
+
+.v4 .compact-issue-icon .icon {
+  width: 17px;
+  height: 17px;
+}
+
+.v4 .compact-issue-heading strong,
+.v4 .compact-issue-heading span {
+  display: block;
+}
+
+.v4 .compact-issue-heading strong {
+  margin-bottom: 2px;
+  color: var(--danger-strong);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.v4 .compact-issue-heading div > span {
+  color: #7a3e38;
+  line-height: 1.45;
+}
+
+.v4 .compact-issue-main > button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 14px;
+  color: #fff;
+  background: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 5px 12px rgba(217, 45, 32, .14);
+}
+
+.v4 .compact-issue-main > button:hover {
+  color: #fff;
+  background: var(--danger-strong);
+  border-color: var(--danger-strong);
+  box-shadow: 0 7px 16px rgba(217, 45, 32, .18);
+}
+
+.v4 .compact-issue-list {
+  border-top: 1px solid #fecaca;
+}
+
+.v4 .compact-issue-row {
+  display: grid;
+  grid-template-columns: 20px minmax(48px, auto) 104px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-top: 1px solid #fee2e2;
+}
+
+.v4 .compact-issue-row:first-child {
+  border-top: 0;
+}
+
+.v4 .compact-row-icon {
+  display: grid;
+  place-items: center;
+  color: var(--danger);
+}
+
+.v4 .compact-issue-row strong {
+  color: #3e2724;
+  font-size: 12px;
+}
+
+.v4 .compact-issue-row small {
+  color: #7c6966;
+  font: 600 10px/1.3 "SFMono-Regular", Consolas, monospace;
+}
+
+.v4 .compact-row-reason {
+  min-width: 0;
+  color: #69413d;
+  line-height: 1.45;
+}
+
+.v4 .compact-issue-row em {
+  padding: 3px 7px;
+  color: var(--danger-strong);
+  background: #fee4e2;
+  border-radius: 999px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.v4 .compact-issue-row.review .compact-row-icon,
+.v4 .compact-issue-row.review em {
+  color: var(--review);
+}
+
+.v4 .compact-issue-row.review em {
+  background: #ffedd5;
+}
+
+.v4 .compact-issue-banner.info-only {
+  color: #4e5d5a;
+  background: #fafcfb;
+  border-color: #d8e1de;
+}
+
+.v4 .compact-issue-banner.info-only .compact-issue-main {
+  background: #f5f8f6;
+}
+
+.v4 .compact-issue-banner.info-only .compact-issue-icon,
+.v4 .compact-issue-banner.info-only .compact-issue-main > button {
+  background: #657571;
+  border-color: #657571;
+  box-shadow: none;
+}
+
+.v4 .compact-issue-banner.info-only .compact-issue-heading strong {
+  color: #40504c;
+}
+
+.v4 .compact-issue-banner.info-only .compact-issue-heading div > span {
+  color: #657571;
+}
+
+.v4 .copy-period-group.copy-issue-missing {
+  border-color: var(--danger-border);
+  border-top-color: var(--danger);
+}
+
+.v4 .copy-period-group.copy-issue-review {
+  border-color: var(--review-border);
+  border-top-color: var(--review);
+}
+
+.v4 .copy-period-group > header > div {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.v4 .copy-status,
+.v4 .core-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.v4 .copy-status.missing,
+.v4 .core-status.missing {
+  color: var(--danger-strong);
+  background: #fee4e2;
+}
+
+.v4 .copy-status.review,
+.v4 .core-status.review {
+  color: var(--review);
+  background: #ffedd5;
+}
+
+.v4 .copy-period-group.copy-issue-missing .empty-copy-value {
+  background: #fff7f6;
+}
+
+.v4 .copy-period-group.copy-issue-missing .empty-copy-value strong {
+  color: var(--danger);
+}
+
+.v4 .copy-period-issue {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 34px;
+  padding: 8px 10px;
+  border-top: 1px solid #fee2e2;
+  color: var(--danger-strong);
+  background: var(--danger-soft);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.v4 .copy-period-issue.review {
+  color: #92540a;
+  background: var(--review-soft);
+  border-color: #fed7aa;
+}
+
+.v4 .copy-console > .copy-main.has-issues {
+  color: var(--danger-strong);
+  background: #fff;
+  border: 1px solid var(--danger-border);
+  box-shadow: none;
+}
+
+.v4 .copy-console > .copy-main.has-issues:hover {
+  color: var(--danger-strong);
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+.v4 .core-price-row.core-issue-missing {
+  background: #fffafa;
+  border-color: var(--danger-border);
+}
+
+.v4 .core-price-row.core-issue-review {
+  background: #fffdf8;
+  border-color: var(--review-border);
+}
+
+.v4 .core-period {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.v4 .core-price-input.field-missing {
+  color: var(--danger-strong);
+  background: #fff7f6;
+  border-color: var(--danger-border);
+}
+
+.v4 .core-price-input.field-missing::placeholder {
+  color: var(--danger);
+  opacity: 1;
+}
+
+.v4 .core-price-issue {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  grid-column: 1 / -1;
+  color: var(--danger-strong);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.v4 .core-price-issue.review {
+  color: var(--review);
+}
+
+@media (max-width: 760px) {
+  .v4 .compact-issue-main {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .v4 .compact-issue-main > button {
+    width: 100%;
+  }
+
+  .v4 .compact-issue-row {
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+    gap: 6px 8px;
+    padding: 10px 12px;
+  }
+
+  .v4 .compact-issue-row small {
+    display: none;
+  }
+
+  .v4 .compact-row-reason {
+    grid-column: 2 / -1;
+  }
+
+  .v4 .copy-period-group > header > div {
+    align-items: flex-end;
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
 .v4 .app-shell {
   width: 100%;
   max-width: none;
@@ -2388,5 +2721,61 @@ body.v4 {
     max-height: calc(100vh - 24px);
     padding: 18px;
     overflow-y: auto;
+  }
+}
+
+/* 异常组件位于历史样式之后，确保危险状态不会被品牌橙覆盖。 */
+.v4 .compact-issue-banner {
+  display: block;
+  margin: 0 0 14px;
+  padding: 0;
+  overflow: hidden;
+  color: #51201b;
+  background: #fffafa;
+  border: 1px solid var(--danger-border);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.v4 .compact-issue-main > button {
+  min-height: 36px;
+  padding: 0 14px;
+  color: #fff;
+  background: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.v4 .compact-issue-banner.info-only {
+  color: #4e5d5a;
+  background: #fafcfb;
+  border-color: #d8e1de;
+}
+
+.v4 .compact-issue-banner.info-only .compact-issue-main > button {
+  color: #fff;
+  background: #657571;
+  border-color: #657571;
+}
+
+.v4 .copy-console > .copy-main.has-issues {
+  color: var(--danger-strong);
+  background: #fff;
+  border: 1px solid var(--danger-border);
+  box-shadow: none;
+}
+
+@media (max-width: 760px) {
+  .v4 .compact-issue-main {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .v4 .compact-issue-main > button {
+    width: 100%;
   }
 }
