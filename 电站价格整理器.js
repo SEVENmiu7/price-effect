@@ -381,7 +381,7 @@ compactIssue.id = "compactIssueBanner";
 compactIssue.hidden = true;
 compactIssue.setAttribute("role", "alert");
 compactIssue.setAttribute("aria-live", "assertive");
-compactIssue.innerHTML = `<div class="compact-issue-main"><div class="compact-issue-heading"><span class="compact-issue-icon">${svgIcon("alert-circle")}</span><div><strong id="compactIssueTitle">发现待核对项</strong><span id="compactIssueText">请逐项确认后再复制。</span></div></div><button type="button" id="compactIssueBtn">开始处理</button></div><div class="compact-issue-list" id="compactIssueList" role="list" aria-label="待核对问题"></div>`;
+compactIssue.innerHTML = `<div class="compact-issue-main"><div class="compact-issue-heading"><span class="compact-issue-mark" aria-hidden="true">!</span><div><strong id="compactIssueTitle">发现待核对项</strong><span id="compactIssueText">请逐项确认后再复制。</span></div></div><button type="button" id="compactIssueBtn">开始处理</button></div><div class="compact-issue-list" id="compactIssueList" role="list" aria-label="待核对问题"></div>`;
 copyConsole.insertAdjacentElement("afterend", compactIssue);
 compactIssue.insertAdjacentElement("afterend", coreSection);
 const detailSection = resultPanel.querySelector(".detail-section");
@@ -721,15 +721,15 @@ copyButton.innerHTML = `${svgIcon("copy")} ${copyLabel}`;
 const compactBanner = document.getElementById("compactIssueBanner");
 if (compactBanner) {
 compactBanner.hidden = !hasAnalysed || !issues.length;
-compactBanner.classList.toggle("info-only", !selectedIssues.length);
-compactBanner.setAttribute("role", selectedIssues.length ? "alert" : "status");
-compactBanner.setAttribute("aria-live", selectedIssues.length ? "assertive" : "polite");
+compactBanner.classList.remove("info-only");
+compactBanner.setAttribute("role", "alert");
+compactBanner.setAttribute("aria-live", "assertive");
 document.getElementById("compactIssueTitle").textContent = selectedIssues.length
 ? `发现 ${selectedIssues.length} 个待核对项`
-: "本次复制内容完整";
+: `另有 ${issues.length} 个时段待核对`;
 document.getElementById("compactIssueText").textContent = selectedIssues.length
 ? `请逐项确认后再复制${unselectedIssueCount ? `；另有 ${unselectedIssueCount} 个未选时段存在问题` : ""}。`
-: `另有 ${issues.length} 个未选时段待核对。`;
+: "这些时段未包含在本次复制中，仍建议完成核对。";
 const listedIssues = selectedIssues.length ? selectedIssues : issues;
 document.getElementById("compactIssueList").innerHTML = listedIssues.map(row => {
 const displayStatus = rowDisplayStatus(row);

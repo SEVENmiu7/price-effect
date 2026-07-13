@@ -53,20 +53,13 @@ body.v4 {
   min-width: 0;
 }
 
-.v4 .compact-issue-icon {
-  display: grid;
-  place-items: center;
+.v4 .compact-issue-mark {
   flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
-  color: #fff;
-  background: var(--danger);
-  border-radius: 50%;
-}
-
-.v4 .compact-issue-icon .icon {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  color: var(--danger);
+  font: 850 30px/1 "Microsoft YaHei UI", sans-serif;
+  text-align: center;
+  transform: translateY(-1px);
 }
 
 .v4 .compact-issue-heading strong,
@@ -164,31 +157,6 @@ body.v4 {
 
 .v4 .compact-issue-row.review em {
   background: #ffedd5;
-}
-
-.v4 .compact-issue-banner.info-only {
-  color: #4e5d5a;
-  background: #fafcfb;
-  border-color: #d8e1de;
-}
-
-.v4 .compact-issue-banner.info-only .compact-issue-main {
-  background: #f5f8f6;
-}
-
-.v4 .compact-issue-banner.info-only .compact-issue-icon,
-.v4 .compact-issue-banner.info-only .compact-issue-main > button {
-  background: #657571;
-  border-color: #657571;
-  box-shadow: none;
-}
-
-.v4 .compact-issue-banner.info-only .compact-issue-heading strong {
-  color: #40504c;
-}
-
-.v4 .compact-issue-banner.info-only .compact-issue-heading div > span {
-  color: #657571;
 }
 
 .v4 .copy-period-group.copy-issue-missing {
@@ -2561,17 +2529,6 @@ body.v4 {
   margin: 0 0 12px;
 }
 
-.v4 .compact-issue-banner.info-only {
-  border-color: #dce4e1;
-  color: #637071;
-  background: #f8faf8;
-}
-
-.v4 .compact-issue-banner.info-only button {
-  border-color: #d6dfdc;
-  color: #596667;
-}
-
 .v4 .copy-console > .copy-main.has-issues {
   color: #9a4415;
   border: 1px solid #f0b58f;
@@ -2747,18 +2704,6 @@ body.v4 {
   border-radius: 7px;
   font-size: 12px;
   font-weight: 700;
-}
-
-.v4 .compact-issue-banner.info-only {
-  color: #4e5d5a;
-  background: #fafcfb;
-  border-color: #d8e1de;
-}
-
-.v4 .compact-issue-banner.info-only .compact-issue-main > button {
-  color: #fff;
-  background: #657571;
-  border-color: #657571;
 }
 
 .v4 .copy-console > .copy-main.has-issues {
