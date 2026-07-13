@@ -644,11 +644,8 @@ renderResults();
 function renderNotices() {
 const notices = [];
 if (!parsedSections.length) notices.push({ type: "danger", text: "没有识别到时段，请检查OCR文本中的时间格式。" });
-const missing = resultRows.filter(row => rowDisplayStatus(row) === "missing").length;
-const review = resultRows.filter(row => rowDisplayStatus(row) === "review").length;
-if (missing) notices.push({ type: "danger", text: `${missing} 个时段没有识别到价格，请人工补录。` });
-if (review) notices.push({ type: "warn", text: `${review} 个时段需要核对，请对照截图后再复制。` });
-if (!missing && !review && parsedSections.length) notices.push({ type: "", text: `已整理 ${parsedSections.length} 个截图时段，请对照截图完成最终核对。` });
+const issues = getProblemRows();
+if (!issues.length && parsedSections.length) notices.push({ type: "", text: `已整理 ${parsedSections.length} 个截图时段，当前复制内容完整。` });
 noticeStack.innerHTML = notices.map(item => `<div class="notice ${item.type}">${escapeHtml(item.text)}</div>`).join("");
 }
 function renderAudit() {
@@ -686,8 +683,14 @@ document.getElementById("expandHiddenText").textContent = `展开另外 ${hidden
 function getProblemRows() {
 return hasAnalysed ? resultRows.filter(row => rowDisplayStatus(row) !== "ok") : [];
 }
+function getSelectedProblemRows() {
+return hasAnalysed ? orderedSelectedRows().filter(row => rowDisplayStatus(row) !== "ok") : [];
+}
 function updateIssueControls() {
 const issues = getProblemRows();
+const selectedRows = orderedSelectedRows();
+const selectedIssues = getSelectedProblemRows();
+const unselectedIssueCount = Math.max(issues.length - selectedIssues.length, 0);
 const missing = issues.filter(row => rowDisplayStatus(row) === "missing").length;
 const review = issues.length - missing;
 const issueButton = document.getElementById("issueActionBtn");
@@ -697,15 +700,19 @@ const banner = document.getElementById("issueModeBanner");
 banner.hidden = !problemMode || !issues.length;
 document.getElementById("issueModeText").textContent = `共 ${issues.length} 项，请逐项检查后再复制。`;
 const copyButton = document.getElementById("copyBtn");
-copyButton.classList.toggle("primary", hasAnalysed && !issues.length);
-const previewNotice = document.getElementById("copyPreviewNotice");
-previewNotice.hidden = !hasAnalysed || !issues.length;
-previewNotice.classList.remove("success");
-previewNotice.textContent = issues.length ? "存在需核对项，建议处理后再复制。" : "";
+const canCopy = hasAnalysed && selectedRows.length > 0;
+copyButton.disabled = !canCopy;
+copyButton.classList.toggle("primary", canCopy && !selectedIssues.length);
+copyButton.classList.toggle("has-issues", canCopy && selectedIssues.length > 0);
+const copyLabel = !hasAnalysed ? "暂无可复制结果" : (!selectedRows.length ? "请先选择时段" : (selectedIssues.length ? "仍要复制" : "复制结果"));
+copyButton.innerHTML = `${svgIcon("copy")} ${copyLabel}`;
 const compactBanner = document.getElementById("compactIssueBanner");
 if (compactBanner) {
 compactBanner.hidden = !hasAnalysed || !issues.length;
-document.getElementById("compactIssueText").textContent = `发现 ${issues.length} 个需核对项，建议处理后再复制。`;
+compactBanner.classList.toggle("info-only", !selectedIssues.length);
+document.getElementById("compactIssueText").textContent = selectedIssues.length
+? `本次复制包含 ${selectedIssues.length} 个待核对项${unselectedIssueCount ? `；另有 ${unselectedIssueCount} 个未选时段存在问题` : ""}。`
+: `本次复制内容完整；另有 ${issues.length} 个未选时段待核对。`;
 document.getElementById("compactIssueBtn").textContent = problemMode ? "查看全部" : "只看问题项";
 }
 }
@@ -887,10 +894,7 @@ document.getElementById("helpDetailBody").innerHTML = `<h3>${escapeHtml(section.
 }
 async function copySelected() {
 if (!hasAnalysed) {
-const notice = document.getElementById("copyPreviewNotice");
-notice.hidden = false;
-notice.classList.remove("success");
-notice.textContent = "请先完成整理，再复制结果。";
+noticeStack.innerHTML = `<div class="notice warn">请先完成整理，再复制结果。</div>`;
 return;
 }
 const text = selectedValues().join("\t");

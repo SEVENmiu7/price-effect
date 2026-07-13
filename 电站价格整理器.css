@@ -2209,3 +2209,47 @@ body.v4 {
 .v4 .detail-toolbar .result-actions {
   grid-template-columns: minmax(0, 226px) auto;
 }
+
+.v4 .result-notice-stack {
+  margin: 0 0 12px;
+}
+
+.v4 .result-notice-stack:empty {
+  display: none;
+}
+
+.v4 .result-notice-stack .notice {
+  padding: 9px 12px;
+  font-size: 12px;
+  text-align: left;
+}
+
+.v4 .compact-issue-banner {
+  margin: 0 0 12px;
+}
+
+.v4 .compact-issue-banner.info-only {
+  border-color: #dce4e1;
+  color: #637071;
+  background: #f8faf8;
+}
+
+.v4 .compact-issue-banner.info-only button {
+  border-color: #d6dfdc;
+  color: #596667;
+}
+
+.v4 .copy-console > .copy-main.has-issues {
+  color: #9a4415;
+  border: 1px solid #f0b58f;
+  background: #fff8f3;
+  box-shadow: none;
+}
+
+.v4 .copy-console > .copy-main:disabled {
+  cursor: not-allowed;
+  color: #8a9394;
+  border: 1px solid #dfe4e2;
+  background: #f0f3f1;
+  box-shadow: none;
+}
