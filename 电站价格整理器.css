@@ -1152,7 +1152,7 @@ body.v4 {
   display: flex;
   flex-direction: column;
   width: min(1296px, calc(100vw - 48px));
-  height: min(998px, calc(100vh - 48px));
+  height: min(800px, calc(100vh - 48px));
   max-height: calc(100vh - 48px);
   padding: 0;
   overflow: hidden;
@@ -1166,7 +1166,7 @@ body.v4 {
   align-items: flex-start;
   justify-content: space-between;
   flex: 0 0 auto;
-  padding: 32px 38px 46px;
+  padding: 26px 38px 20px;
 }
 
 .v4 .editor-kicker {
@@ -1187,22 +1187,16 @@ body.v4 {
 }
 
 .v4 .editor-header h2 {
-  margin: 12px 0 7px;
-  font-size: 38px;
+  margin: 10px 0 0;
+  font-size: 34px;
   line-height: 1.12;
   letter-spacing: .05em;
 }
 
-.v4 .editor-header p {
-  margin: 0;
-  color: #6f6b68;
-  font-size: 16px;
-}
-
 .v4 .editor-close {
-  width: 50px;
-  height: 50px;
-  min-height: 50px;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
   color: #2f2c2a;
   background: #f7f5f3;
   border: 0;
@@ -1221,7 +1215,7 @@ body.v4 {
   display: grid;
   grid-template-rows: auto 1fr;
   flex: 1 1 auto;
-  gap: 14px;
+  gap: 12px;
   min-height: 0;
   padding: 0 30px 8px;
   overflow-y: auto;
@@ -1233,12 +1227,12 @@ body.v4 {
   background: #fff;
 }
 
-.v4 .editor-basic-section { padding: 18px 20px 22px; }
+.v4 .editor-basic-section { padding: 14px 20px 18px; }
 .v4 .editor-period-section {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 16px 20px 20px;
+  padding: 14px 20px 16px;
 }
 
 .v4 .editor-section-title {
@@ -1246,7 +1240,7 @@ body.v4 {
   padding-left: 12px;
   border-left: 4px solid var(--accent);
   color: #2f2b28;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 760;
   line-height: 1.2;
 }
@@ -1256,7 +1250,18 @@ body.v4 {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+}
+
+.v4 .editor-section-heading {
+  display: grid;
+  gap: 5px;
+}
+
+.v4 .editor-section-heading p {
+  margin: 0 0 0 16px;
+  color: #817a75;
+  font-size: 12px;
 }
 
 .v4 .editor-config-row {
@@ -1264,7 +1269,7 @@ body.v4 {
   grid-template-columns: 630px 1px 1fr;
   gap: 24px;
   align-items: end;
-  margin-top: 24px;
+  margin-top: 16px;
 }
 
 .v4 .editor-meta {
@@ -1283,14 +1288,8 @@ body.v4 {
   font-weight: 680;
 }
 
-.v4 .editor-help-icon {
-  width: 15px;
-  height: 15px;
-  color: #8b8783;
-}
-
 .v4 .editor-meta input {
-  height: 48px;
+  height: 44px;
   padding: 0 15px;
   border-radius: 8px;
   font-size: 16px;
@@ -1315,7 +1314,7 @@ body.v4 {
 
 .v4 .editor-config-divider {
   width: 1px;
-  height: 80px;
+  height: 68px;
   background: #ece5df;
 }
 
@@ -1325,21 +1324,20 @@ body.v4 {
   margin: 0;
 }
 
-.v4 .editor-toolbar button:nth-child(1) { width: 184px; }
-.v4 .editor-toolbar button:nth-child(2),
-.v4 .editor-toolbar button:nth-child(3) { width: 150px; }
+.v4 .editor-toolbar button:nth-child(1) { width: 172px; }
+.v4 .editor-toolbar button:nth-child(2) { width: 142px; }
 
 .v4 .editor-config-row button,
 .v4 .editor-section-top button {
-  min-height: 58px;
-  padding: 0 20px;
-  font-size: 16px;
+  min-height: 48px;
+  padding: 0 18px;
+  font-size: 15px;
   white-space: nowrap;
 }
 
 .v4 .editor-section-top button {
-  min-height: 42px;
-  padding-inline: 18px;
+  min-height: 40px;
+  padding-inline: 16px;
 }
 
 .v4 .editor-add-button {
@@ -1378,13 +1376,13 @@ body.v4 {
 }
 
 .v4 .editor-period-head {
-  min-height: 48px;
+  min-height: 44px;
   padding: 0 14px;
   color: #625d59;
   background: #fbfaf9;
   border-bottom: 1px solid #e7e1dc;
   border-radius: 10px 10px 0 0;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -1398,8 +1396,8 @@ body.v4 {
 .v4 .editor-period-head > span:nth-child(6) { justify-content: flex-start; }
 
 .v4 .editor-period-row {
-  min-height: 62px;
-  padding: 8px 14px;
+  min-height: 56px;
+  padding: 6px 14px;
   border: 0;
   border-bottom: 1px solid #eee8e3;
   border-radius: 0;
@@ -1410,15 +1408,15 @@ body.v4 {
 
 .v4 .editor-period-row input,
 .v4 .editor-period-row select {
-  height: 44px;
+  height: 40px;
   font-size: 16px;
 }
 
 .v4 .editor-period-row .pretty-select-trigger {
   width: 100%;
   min-width: 0;
-  height: 44px;
-  min-height: 44px;
+  height: 40px;
+  min-height: 40px;
   gap: 10px;
   padding-inline: 14px;
   border-radius: 8px;
@@ -1444,24 +1442,24 @@ body.v4 {
   flex-direction: row;
   justify-content: flex-start;
   gap: 9px !important;
-  height: 44px;
+  height: 40px;
   padding: 0;
   color: #4f4a46;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .v4 .editor-common input {
   flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   margin: 0;
   accent-color: var(--accent);
 }
 
 .v4 .editor-remove {
-  width: 44px;
-  height: 44px;
-  min-height: 44px;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
   margin: 0 auto;
   padding: 0;
   color: #ef4d3f;
@@ -1493,8 +1491,8 @@ body.v4 {
   top: 0;
   right: 0;
   width: 40px;
-  height: 44px;
-  min-height: 44px;
+  height: 40px;
+  min-height: 40px;
   padding: 0;
   border: 0;
   border-radius: 0 8px 8px 0;
@@ -1567,42 +1565,49 @@ body.v4 {
   background: #8b8682;
 }
 
-.v4 .editor-tone-dot.tone-1 { background: #7b4ce2; }
-.v4 .editor-tone-dot.tone-2 { background: #38a85a; }
-.v4 .editor-tone-dot.tone-3 { background: #f08b2f; }
-.v4 .editor-tone-dot.tone-4 { background: #e45543; }
-.v4 .editor-tone-dot.tone-5 { background: #347ee8; }
+.v4 .editor-tone-dot.tone-1 { background: #d6a86f; }
+.v4 .editor-tone-dot.tone-2 { background: #86a9c8; }
+.v4 .editor-tone-dot.tone-3 { background: #c9594b; }
+.v4 .editor-tone-dot.tone-4 { background: #df8b5e; }
+.v4 .editor-tone-dot.tone-5 { background: #b99a78; }
 
 .v4 .editor-feedback {
   display: flex;
   align-items: center;
   gap: 9px;
-  min-height: 46px;
-  margin-top: 12px;
-  padding: 0 14px;
-  color: #b85d39;
-  background: #fff7f1;
-  border: 1px solid #f4d9ca;
-  border-radius: 8px;
-  font-size: 15px;
+  min-height: 30px;
+  margin-top: 8px;
+  padding: 0 2px;
+  color: #817a75;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  font-size: 12px;
 }
 
+.v4 .editor-feedback.error,
+.v4 .editor-feedback.success {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid;
+  font-size: 13px;
+}
 .v4 .editor-feedback.error { color: #9d3d31; background: #fff0ee; border-color: #f0c8c3; }
 .v4 .editor-feedback.success { color: #317346; background: #edf8ef; border-color: #cce7d2; }
 
 .v4 .editor-footer {
   flex: 0 0 auto;
-  min-height: 104px;
+  min-height: 86px;
   margin: 0;
-  padding: 20px 32px;
+  padding: 16px 32px;
   border-top: 1px solid #e6dfd9;
   background: #fff;
 }
 
 .v4 .editor-footer button {
-  min-width: 220px;
-  min-height: 64px;
-  font-size: 17px;
+  min-width: 200px;
+  min-height: 52px;
+  font-size: 16px;
 }
 
 .v4 .editor-footer #editorExport {
@@ -1637,7 +1642,7 @@ body.v4 {
 
 @media (max-width: 1180px) {
   .v4 .time-table-editor {
-    height: calc(100vh - 24px);
+    height: min(800px, calc(100vh - 24px));
     width: calc(100vw - 24px);
   }
   .v4 .editor-header { padding: 24px; }
