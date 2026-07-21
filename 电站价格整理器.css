@@ -4536,3 +4536,316 @@ body.v4 {
     --line-strong: rgba(0, 0, 0, .34);
   }
 }
+
+/* Apple 交互修正：紧凑选择器、单一滚动区域与可打断的物理反馈。 */
+.v4 button:active:not(:disabled) {
+  transform: translateY(1px) scale(.97);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+  transition-duration: 60ms;
+}
+
+.v4 .icon-button:active:not(:disabled),
+.v4 .editor-remove:active:not(:disabled),
+.v4 .time-picker-toggle:active:not(:disabled) {
+  transform: scale(.92);
+}
+
+.v4 #configSummaryBtn .icon:last-child {
+  transition: transform 180ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.v4 #configSummaryBtn[aria-expanded="true"] .icon:last-child {
+  transform: rotate(180deg);
+}
+
+.v4 .top-popover {
+  opacity: 0;
+  animation: none;
+  pointer-events: none;
+  transform: translateY(-7px) scale(.975);
+  transition:
+    opacity 150ms ease-out,
+    transform 190ms cubic-bezier(.2, .82, .2, 1);
+  will-change: transform, opacity;
+}
+
+.v4 .top-popover.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.v4 .config-popover {
+  right: 230px;
+  display: grid;
+  gap: 0;
+  width: 304px;
+  min-width: 0;
+  padding: 8px;
+  transform-origin: top center;
+}
+
+.v4 .config-popover .top-menu-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 4px 3px;
+  padding: 7px 6px 10px;
+}
+
+.v4 .config-popover .top-menu-heading strong {
+  flex: 0 0 auto;
+  font-size: 13px;
+}
+
+.v4 .config-popover .top-menu-heading span {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v4 .config-popover .header-control {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: none;
+  transition: background-color 150ms ease-out;
+}
+
+.v4 .config-popover .header-control:hover {
+  background: rgba(118, 118, 128, .07);
+}
+
+.v4 .config-popover .header-control + .header-control {
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 10px 10px;
+}
+
+.v4 .config-popover .header-control label {
+  color: #646469;
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.v4 .config-popover .pretty-select,
+.v4 .config-popover .pretty-select-trigger {
+  width: 100%;
+  min-width: 0 !important;
+}
+
+.v4 .config-popover .pretty-select-trigger {
+  min-height: 36px;
+  height: 36px;
+  gap: 10px;
+  padding: 0 10px;
+  border-color: rgba(29, 29, 31, .1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .78);
+  font-size: 13px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8);
+}
+
+.v4 .config-popover .pretty-select-menu {
+  right: 0;
+  left: auto;
+  width: 100%;
+}
+
+.v4 .pretty-select-menu {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-5px) scale(.98);
+  transform-origin: top center;
+  transition:
+    opacity 130ms ease-out,
+    transform 170ms cubic-bezier(.2, .82, .2, 1);
+  will-change: transform, opacity;
+}
+
+.v4 .pretty-select-menu.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.v4 .pretty-select-option:active:not(:disabled) {
+  transform: scale(.985);
+}
+
+.v4 .modal,
+.v4 .popover,
+.v4 .help-drawer {
+  transition-timing-function: cubic-bezier(.2, .82, .2, 1);
+}
+
+.v4 .modal.time-table-editor {
+  width: min(1320px, calc(100vw - 32px));
+  height: min(802px, calc(100dvh - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  overflow: hidden;
+  border-radius: 24px;
+  box-sizing: border-box;
+}
+
+.v4 .time-table-editor .editor-header {
+  padding: 21px 28px 15px;
+}
+
+.v4 .time-table-editor .editor-header h2 {
+  margin-top: 7px;
+  font-size: 30px;
+  letter-spacing: -.025em;
+}
+
+.v4 .time-table-editor .editor-kicker {
+  font-size: 13px;
+}
+
+.v4 .time-table-editor .editor-close {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+}
+
+.v4 .time-table-editor #editorContent:not([hidden]) {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.v4 .time-table-editor .editor-sections {
+  min-width: 0;
+  padding: 0 24px 10px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.v4 .time-table-editor .editor-section,
+.v4 .time-table-editor .editor-config-row,
+.v4 .time-table-editor .editor-period-table {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.v4 .time-table-editor .editor-period-section {
+  padding: 13px 18px 14px;
+}
+
+.v4 .time-table-editor .editor-period-row {
+  min-height: 52px;
+  padding-block: 5px;
+}
+
+.v4 .time-table-editor .editor-name-field {
+  display: block;
+  min-width: 0;
+}
+
+.v4 .time-table-editor .editor-field-caption {
+  display: none;
+}
+
+.v4 .time-table-editor .editor-period-row > .editor-name-field {
+  grid-column: 1;
+}
+
+.v4 .time-table-editor .editor-footer {
+  min-height: 74px;
+  padding: 11px 28px;
+}
+
+.v4 .time-table-editor .editor-footer button {
+  min-height: 48px;
+}
+
+@media (max-width: 1180px) {
+  .v4 .modal.time-table-editor {
+    width: calc(100vw - 24px);
+    height: calc(100dvh - 24px);
+    max-height: calc(100dvh - 24px);
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .v4 .time-table-editor .editor-sections {
+    padding-inline: 18px;
+  }
+
+  .v4 .time-table-editor .editor-field-caption,
+  .v4 .time-table-editor .time-picker-field::before,
+  .v4 .time-table-editor .editor-tone-field::before {
+    display: block;
+    color: #747478;
+    font-size: 11px;
+    font-weight: 620;
+    line-height: 1.2;
+  }
+
+  .v4 .time-table-editor .time-picker-field,
+  .v4 .time-table-editor .editor-tone-field {
+    display: grid;
+    gap: 5px;
+  }
+
+  .v4 .time-table-editor .time-picker-field::before,
+  .v4 .time-table-editor .editor-tone-field::before {
+    content: attr(data-field-label);
+  }
+
+  .v4 .time-table-editor .time-picker-toggle {
+    top: auto;
+    bottom: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .v4 .config-popover {
+    right: auto;
+    left: 12px;
+    width: min(304px, calc(100vw - 24px));
+  }
+
+  .v4 .modal.time-table-editor {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: 100%;
+    height: calc(100dvh - 8px);
+    max-height: calc(100dvh - 8px);
+    padding: 0 0 env(safe-area-inset-bottom);
+    overflow: hidden;
+    border-radius: 22px 22px 0 0;
+    transform: translateY(22px) scale(.99);
+    transform-origin: bottom center;
+  }
+
+  .v4 .modal.time-table-editor.is-visible {
+    transform: translateY(0) scale(1);
+  }
+
+  .v4 .time-table-editor .editor-header {
+    padding: 18px 18px 13px;
+  }
+
+  .v4 .time-table-editor .editor-header h2 {
+    font-size: 27px;
+  }
+
+  .v4 .time-table-editor .editor-sections {
+    padding: 0 12px 8px;
+    scrollbar-gutter: auto;
+  }
+}

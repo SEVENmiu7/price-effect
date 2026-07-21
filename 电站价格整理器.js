@@ -261,17 +261,28 @@ const summary = document.getElementById("configSummaryText");
 if (!summary) return;
 summary.textContent = `${REGION_CONFIGS[regionSelect.value].name} · ${formatMonthLabel(effectiveMonth.value)}`;
 }
-function closeTopMenus() {
-document.querySelectorAll(".top-popover").forEach(menu => { menu.hidden = true; });
+function closeTopMenus(immediate = false) {
+document.querySelectorAll(".top-popover").forEach(menu => {
+if (menu.hidden) {
+menu.classList.remove("is-visible");
+menu.inert = true;
+return;
+}
+hideAnimatedLayer(menu, immediate);
+});
 document.querySelectorAll("#configSummaryBtn, #moreBtn").forEach(button => button.setAttribute("aria-expanded", "false"));
 }
 function toggleTopMenu(menuId, buttonId) {
 const menu = document.getElementById(menuId);
 const button = document.getElementById(buttonId);
-const willOpen = menu.hidden;
+const willOpen = menu.hidden || !menu.classList.contains("is-visible");
+if (!willOpen) {
 closeTopMenus();
-menu.hidden = !willOpen;
-button.setAttribute("aria-expanded", String(willOpen));
+return;
+}
+closeTopMenus(true);
+showAnimatedLayer(menu);
+button.setAttribute("aria-expanded", "true");
 }
 function bindCompactWorkspaceEvents() {
 const detailFold = document.querySelector(".detail-fold");
@@ -935,6 +946,7 @@ getLayerElements().forEach(element => hideAnimatedLayer(element, immediate));
 }
 function handleLayerKeydown(event) {
 if (event.key === "Escape") {
+if (document.querySelector(".pretty-select.open")) return;
 closeTopMenus();
 closeLayers();
 return;
@@ -956,8 +968,10 @@ first.focus();
 }
 function openLayer(element, withOverlay) {
 const currentFocus = document.activeElement;
+const currentTopMenu = currentFocus instanceof HTMLElement ? currentFocus.closest(".top-popover") : null;
+const topMenuReturnFocus = currentTopMenu?.id === "moreMenu" ? document.getElementById("moreBtn") : currentTopMenu?.id === "configPopover" ? document.getElementById("configSummaryBtn") : null;
 hideAllLayers(true);
-layerReturnFocus = currentFocus instanceof HTMLElement && currentFocus !== document.body ? currentFocus : null;
+layerReturnFocus = topMenuReturnFocus || (currentFocus instanceof HTMLElement && currentFocus !== document.body ? currentFocus : null);
 showAnimatedLayer(element);
 if (withOverlay) showAnimatedLayer(modalOverlay);
 document.body.classList.toggle("layer-active", withOverlay);
@@ -1326,7 +1340,33 @@ select.insertAdjacentElement("afterend", wrapper);
 const trigger = wrapper.querySelector(".pretty-select-trigger");
 const value = wrapper.querySelector(".pretty-select-value");
 const menu = wrapper.querySelector(".pretty-select-menu");
-const close = () => { menu.hidden = true; trigger.setAttribute("aria-expanded", "false"); wrapper.classList.remove("open"); };
+let closeTimer = 0;
+const close = (immediate = false) => {
+if (menu.hidden && !wrapper.classList.contains("open")) return;
+window.clearTimeout(closeTimer);
+menu.classList.remove("is-visible");
+menu.inert = true;
+trigger.setAttribute("aria-expanded", "false");
+wrapper.classList.remove("open");
+if (immediate || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+menu.hidden = true;
+return;
+}
+closeTimer = window.setTimeout(() => {
+if (!wrapper.classList.contains("open")) menu.hidden = true;
+}, 170);
+};
+const open = () => {
+window.clearTimeout(closeTimer);
+document.querySelectorAll(".pretty-select.open").forEach(item => {
+if (item !== wrapper) item.dispatchEvent(new CustomEvent("close-pretty-select"));
+});
+menu.hidden = false;
+menu.inert = false;
+trigger.setAttribute("aria-expanded", "true");
+wrapper.classList.add("open");
+requestAnimationFrame(() => menu.classList.add("is-visible"));
+};
 const render = () => {
 const selected = select.options[select.selectedIndex];
 if (options.tone && selected) value.innerHTML = `<span class="editor-tone-dot tone-${escapeHtml(selected.value)}" aria-hidden="true"></span><span>${escapeHtml(selected.textContent)}</span>`;
@@ -1335,11 +1375,14 @@ menu.innerHTML = [...select.options].map(option => `<button type="button" class=
 };
 trigger.addEventListener("click", event => {
 event.stopPropagation();
-const willOpen = menu.hidden;
-document.querySelectorAll(".pretty-select.open").forEach(item => { if (item !== wrapper) item.querySelector(".pretty-select-trigger")?.click(); });
-menu.hidden = !willOpen;
-trigger.setAttribute("aria-expanded", String(willOpen));
-wrapper.classList.toggle("open", willOpen);
+if (menu.hidden || !wrapper.classList.contains("open")) open(); else close();
+});
+trigger.addEventListener("keydown", event => {
+if (event.key === "ArrowDown") {
+event.preventDefault();
+open();
+menu.querySelector('.pretty-select-option[aria-selected="true"]')?.focus();
+}
 });
 menu.addEventListener("click", event => {
 const option = event.target.closest(".pretty-select-option");
@@ -1351,8 +1394,14 @@ close();
 });
 select.addEventListener("change", render);
 new MutationObserver(render).observe(select, { childList: true, subtree: true });
+wrapper.addEventListener("close-pretty-select", () => close());
 document.addEventListener("click", event => { if (!wrapper.contains(event.target)) close(); });
-document.addEventListener("keydown", event => { if (event.key === "Escape") close(); });
+document.addEventListener("keydown", event => {
+if (event.key !== "Escape" || !wrapper.classList.contains("open")) return;
+event.stopPropagation();
+close();
+trigger.focus();
+});
 render();
 return wrapper;
 }
@@ -1499,12 +1548,18 @@ const rows = editor.querySelector("#editorPeriods");
 const addRow = (period = { name: "平", start: "00:00", end: "24:00", tone: 5 }, selected = false) => {
 const row = document.createElement("div");
 row.className = "editor-period-row";
-row.innerHTML = `<input data-field="name" aria-label="时段名称，可自定义" value="${escapeHtml(period.name)}"><input data-field="start" aria-label="开始时间" type="text" inputmode="numeric" maxlength="5" value="${period.start}" placeholder="00:00"><span class="editor-range-separator" aria-hidden="true">–</span><input data-field="end" aria-label="结束时间" type="text" inputmode="numeric" maxlength="5" value="${period.end}" placeholder="24:00"><select data-field="tone" aria-label="价格级别与复制结果卡片顶边颜色"><option value="1">深谷</option><option value="2">低谷</option><option value="5">平段</option><option value="4">高峰</option><option value="3">尖峰</option></select><label class="editor-common"><input data-field="common" type="checkbox" ${selected ? "checked" : ""}><span>常用</span></label><button type="button" class="editor-remove" aria-label="删除时段">${svgIcon("trash", "icon icon-sm")}</button>`;
+row.innerHTML = `<label class="editor-name-field"><span class="editor-field-caption">时段名称</span><input data-field="name" aria-label="时段名称，可自定义" value="${escapeHtml(period.name)}"></label><input data-field="start" aria-label="开始时间" type="text" inputmode="numeric" maxlength="5" value="${period.start}" placeholder="00:00"><span class="editor-range-separator" aria-hidden="true">–</span><input data-field="end" aria-label="结束时间" type="text" inputmode="numeric" maxlength="5" value="${period.end}" placeholder="24:00"><select data-field="tone" aria-label="价格级别与复制结果卡片顶边颜色"><option value="1">深谷</option><option value="2">低谷</option><option value="5">平段</option><option value="4">高峰</option><option value="3">尖峰</option></select><label class="editor-common"><input data-field="common" type="checkbox" ${selected ? "checked" : ""}><span>常用</span></label><button type="button" class="editor-remove" aria-label="删除时段">${svgIcon("trash", "icon icon-sm")}</button>`;
 row.querySelector('[data-field="tone"]').value = String(period.tone || 5);
-enhancePrettySelect(row.querySelector('[data-field="tone"]'), { compact: true, tone: true })?.classList.add("editor-tone-field");
+const toneField = enhancePrettySelect(row.querySelector('[data-field="tone"]'), { compact: true, tone: true });
+toneField?.classList.add("editor-tone-field");
+if (toneField) toneField.dataset.fieldLabel = "价格级别";
 const startInput = row.querySelector('[data-field="start"]');
-enhanceTimeInput(startInput)?.classList.add("editor-start-field");
-enhanceTimeInput(row.querySelector('[data-field="end"]'), { allow24: true, getMinValue: () => startInput.value })?.classList.add("editor-end-field");
+const startField = enhanceTimeInput(startInput);
+startField?.classList.add("editor-start-field");
+if (startField) startField.dataset.fieldLabel = "开始";
+const endField = enhanceTimeInput(row.querySelector('[data-field="end"]'), { allow24: true, getMinValue: () => startInput.value });
+endField?.classList.add("editor-end-field");
+if (endField) endField.dataset.fieldLabel = "结束";
 row.querySelector(".editor-remove").addEventListener("click", () => row.remove());
 rows.appendChild(row);
 };
