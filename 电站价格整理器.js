@@ -216,6 +216,12 @@ YKC价
 0.2610
 0.2610
 0.2505最高优惠5元`};const INTERNAL_SAMPLE_KEY="didichangsha";const regionSelect=document.getElementById("regionSelect");const effectiveMonth=document.getElementById("effectiveMonth");const rawInput=document.getElementById("rawInput");const sampleSelect=document.getElementById("sampleSelect");const resultBody=document.getElementById("resultBody");const noticeStack=document.getElementById("noticeStack");const copyPreview=document.getElementById("copyPreview");const copyLabels=document.getElementById("copyLabels");const auditBody=document.getElementById("auditBody");const commonOnlyToggle=document.getElementById("commonOnlyToggle");const commonModal=document.getElementById("commonModal");const copyModal=document.getElementById("copyModal");const modalOverlay=document.getElementById("modalOverlay");const rulePopover=document.getElementById("rulePopover");const helpDrawer=document.getElementById("helpDrawer");let resultRows=[];let parsedSections=[];const STORAGE_KEY="price-workbench-team-v02";const regionSelectionState={};let copyDraft=null;const HELP_SECTIONS=[{id:"basic",badge:"A",title:"基础设置",summary:"地区和月份：选择对应的时段配置",body:`<ul><li>全天时段：查看当天完整的峰谷划分</li><li>粘贴查价文本：怎样保留有效内容</li></ul>`},{id:"rules",badge:"B",title:"规则与常用设置",summary:"常用时段：保存、重新设置和清除",body:`<ul><li>价格如何选取：会员价和非会员价的规则</li></ul>`},{id:"output",badge:"C",title:"核对与输出",summary:"修改与复制：调整价格和输出顺序",body:`<ul><li>查看识别明细：检查截图时段和原始价格</li></ul>`}];
+let lastAnalysedText = "";
+let clearUndoText = "";
+let clearUndoTimer = 0;
+const layerHideTimers = new WeakMap();
+let layerReturnFocus = null;
+
 const TIME_TABLE_DATA = window.PRICE_TIME_TABLES || {
 version: "内置兼容配置",
 regions: Object.fromEntries(Object.entries(REGION_CONFIGS).map(([key, config]) => [key, { name: config.name, tables: { "2026-06": { defaultOrder: config.defaultOrder, periods: config.periods } } }]))
@@ -537,12 +543,14 @@ parsedSections = [];
 renderResults();
 renderAudit();
 noticeStack.innerHTML = `<div class="notice">已载入 ${config.name} ${config.periods.length} 个全天时段。粘贴完整文本后会自动整理。</div>`;
+if (!rawInput.value.trim()) setInputWorkbenchState("idle");
 }
 function analyse() {
 const text = rawInput.value.trim();
 if (!text) {
 renderEmptyRows();
 noticeStack.innerHTML = `<div class="notice danger">请先粘贴 OCR 文本，或载入一个回归样例。</div>`;
+setInputWorkbenchState("idle");
 return;
 }
 parsedSections = parseSections(text);
@@ -554,6 +562,8 @@ resultRows = config.periods.map((period, index) => ({ index, period, selected: s
 renderResults();
 renderNotices();
 renderAudit();
+lastAnalysedText = rawInput.value;
+setInputWorkbenchState("analysed");
 }
 function renderCorePrices() {
 const section = document.getElementById("corePriceSection");
@@ -895,17 +905,78 @@ rulePopover.style.left = `${left}px`;
 rulePopover.style.top = `${top}px`;
 rulePopover.style.right = "auto";
 }
-function openLayer(element, withOverlay) {
-closeLayers();
+function getLayerElements() {
+return [commonModal, copyModal, rulePopover, helpDrawer, modalOverlay, document.getElementById("timeTableEditor")].filter(Boolean);
+}
+function showAnimatedLayer(element) {
+window.clearTimeout(layerHideTimers.get(element));
+layerHideTimers.delete(element);
+element.inert = false;
 element.hidden = false;
-if (withOverlay) modalOverlay.hidden = false;
+requestAnimationFrame(() => element.classList.add("is-visible"));
+}
+function hideAnimatedLayer(element, immediate = false) {
+window.clearTimeout(layerHideTimers.get(element));
+layerHideTimers.delete(element);
+element.classList.remove("is-visible");
+element.inert = true;
+if (immediate || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+element.hidden = true;
+return;
+}
+const timer = window.setTimeout(() => {
+if (!element.classList.contains("is-visible")) element.hidden = true;
+layerHideTimers.delete(element);
+}, 230);
+layerHideTimers.set(element, timer);
+}
+function hideAllLayers(immediate = false) {
+getLayerElements().forEach(element => hideAnimatedLayer(element, immediate));
+}
+function handleLayerKeydown(event) {
+if (event.key === "Escape") {
+closeTopMenus();
+closeLayers();
+return;
+}
+if (event.key !== "Tab" || modalOverlay.hidden) return;
+const activeLayer = getLayerElements().find(element => element !== modalOverlay && element.classList.contains("is-visible"));
+if (!activeLayer) return;
+const focusable = [...activeLayer.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])')].filter(element => !element.hidden && element.getClientRects().length);
+if (!focusable.length) return;
+const first = focusable[0];
+const last = focusable.at(-1);
+if (event.shiftKey && document.activeElement === first) {
+event.preventDefault();
+last.focus();
+} else if (!event.shiftKey && document.activeElement === last) {
+event.preventDefault();
+first.focus();
+}
+}
+function openLayer(element, withOverlay) {
+const currentFocus = document.activeElement;
+hideAllLayers(true);
+layerReturnFocus = currentFocus instanceof HTMLElement && currentFocus !== document.body ? currentFocus : null;
+showAnimatedLayer(element);
+if (withOverlay) showAnimatedLayer(modalOverlay);
+document.body.classList.toggle("layer-active", withOverlay);
+document.querySelector(".app-shell").inert = withOverlay;
 document.body.style.overflow = withOverlay ? "hidden" : "";
 if (element === rulePopover) requestAnimationFrame(positionRulePopover);
+requestAnimationFrame(() => {
+const focusTarget = element.querySelector('[autofocus], button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex="0"]');
+focusTarget?.focus({ preventScroll: true });
+});
 }
 function closeLayers() {
-[commonModal, copyModal, rulePopover, helpDrawer, modalOverlay].forEach(element => { element.hidden = true; });
-document.getElementById("timeTableEditor")?.setAttribute("hidden", "");
+const returnFocus = layerReturnFocus;
+hideAllLayers(false);
+document.body.classList.remove("layer-active");
+document.querySelector(".app-shell").inert = false;
 document.body.style.overflow = "";
+layerReturnFocus = null;
+window.setTimeout(() => returnFocus?.focus({ preventScroll: true }), 230);
 }
 function renderHelpLinks() {
 document.getElementById("helpLinks").innerHTML = HELP_SECTIONS.map(section => `<details class="help-topic" open><summary><span class="help-topic-badge">${escapeHtml(section.badge)}</span><span class="help-topic-copy"><strong>${escapeHtml(section.title)}</strong><span>${escapeHtml(section.summary)}</span></span>${svgIcon("chevron-down", "icon icon-sm")}</summary><div class="help-topic-body">${section.body}</div></details>`).join("");
@@ -947,6 +1018,53 @@ setTimeout(() => button.innerHTML = original, 1200);
 }
 function updateInputCount() {
 document.getElementById("inputCount").textContent = rawInput.value.length.toLocaleString("zh-CN");
+}
+function setInputWorkbenchState(state) {
+const inputPanel = document.querySelector(".input-panel");
+const stateText = document.getElementById("inputStateText");
+const analyseButton = document.getElementById("analyseBtn");
+if (inputPanel) inputPanel.dataset.inputState = state;
+if (stateText) stateText.textContent = ({ idle: "等待粘贴", dirty: "内容已修改", analysed: "已完成整理" })[state] || "等待粘贴";
+if (analyseButton) {
+const label = state === "dirty" && lastAnalysedText ? "重新整理" : "整理价格";
+analyseButton.innerHTML = `${svgIcon("sparkles", "icon icon-sm")}<span>${label}</span>`;
+}
+}
+function hideClearUndo() {
+const toast = document.getElementById("undoToast");
+window.clearTimeout(clearUndoTimer);
+clearUndoTimer = 0;
+clearUndoText = "";
+if (toast) toast.hidden = true;
+}
+function showClearUndo(text) {
+const toast = document.getElementById("undoToast");
+window.clearTimeout(clearUndoTimer);
+clearUndoText = text;
+if (toast) toast.hidden = false;
+clearUndoTimer = window.setTimeout(hideClearUndo, 5000);
+}
+function clearRawInput() {
+const previousText = rawInput.value;
+if (!previousText) {
+rawInput.focus();
+return;
+}
+rawInput.value = "";
+lastAnalysedText = "";
+updateInputCount();
+renderEmptyRows();
+showClearUndo(previousText);
+rawInput.focus();
+}
+function undoClearRawInput() {
+const restoredText = clearUndoText;
+if (!restoredText) return;
+hideClearUndo();
+rawInput.value = restoredText;
+updateInputCount();
+analyse();
+rawInput.focus();
 }
 function exportResults() {
 const rows = orderedSelectedRows();
@@ -1010,9 +1128,23 @@ window.alert("密钥不正确");
 document.getElementById("loadSampleBtn").addEventListener("click", () => { rawInput.value = SAMPLES[sampleSelect.value]; updateInputCount(); closeTopMenus(); analyse(); });
 document.getElementById("analyseBtn").addEventListener("click", analyse);
 document.getElementById("resetResultBtn")?.addEventListener("click", analyse);
-document.getElementById("clearBtn").addEventListener("click", () => { rawInput.value = ""; updateInputCount(); renderEmptyRows(); rawInput.focus(); });
-rawInput.addEventListener("input", () => { updateInputCount(); renderAudit(); });
+document.getElementById("clearBtn").addEventListener("click", clearRawInput);
+document.getElementById("undoClearBtn")?.addEventListener("click", undoClearRawInput);
+rawInput.addEventListener("input", () => {
+updateInputCount();
+renderAudit();
+if (clearUndoText && rawInput.value) hideClearUndo();
+if (!rawInput.value.trim()) setInputWorkbenchState("idle");
+else if (rawInput.value !== lastAnalysedText) setInputWorkbenchState("dirty");
+else setInputWorkbenchState("analysed");
+});
 rawInput.addEventListener("paste", () => { setTimeout(() => { updateInputCount(); analyse(); }, 0); });
+rawInput.addEventListener("keydown", event => {
+if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+event.preventDefault();
+analyse();
+}
+});
 document.getElementById("detailJumpBtn")?.addEventListener("click", () => {
 revealDetail("auditDetails");
 });
@@ -1065,11 +1197,10 @@ openLayer(helpDrawer, true);
 document.getElementById("helpBackBtn").addEventListener("click", showHelpOverview);
 document.querySelectorAll("[data-close-layer]").forEach(button => button.addEventListener("click", closeLayers));
 modalOverlay.addEventListener("click", closeLayers);
-document.addEventListener("keydown", event => { if (event.key === "Escape") { closeTopMenus(); closeLayers(); } });
+document.addEventListener("keydown", handleLayerKeydown);
 const SCROLL_JUMP_POSITION_KEY = "price-workbench-scroll-jump-v01";
 function setupScrollJumpControls() {
 const configs = [
-{ target: rawInput, axis: "y", id: "raw-input" },
 { target: document.querySelector(".copy-scroll"), axis: "x", id: "copy-preview" },
 { target: document.querySelector(".table-wrap"), axis: "x", id: "price-table" },
 { target: auditBody, axis: "y", id: "source-detail" }

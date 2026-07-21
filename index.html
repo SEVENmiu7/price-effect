@@ -8,6 +8,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>电站价格整理器</title>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="电站价格整理器.css">
 </head>
 <body class="v4 compact-html">
@@ -139,6 +140,13 @@
         <textarea id="rawInput" maxlength="10000" data-testid="raw-input" spellcheck="false" placeholder="粘贴完整价格文本后会自动整理；如果手动改了文字，再点下方“整理价格”。"></textarea>
         <div class="input-counter" hidden><span id="inputCount">0</span>&nbsp;/&nbsp;10,000</div>
         <div class="input-tools">
+          <div class="input-toolbar-meta" aria-live="polite">
+            <span class="input-state" id="inputState">
+              <span class="input-state-dot" aria-hidden="true"></span>
+              <span id="inputStateText">等待粘贴</span>
+            </span>
+            <span class="input-shortcut"><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd></span>
+          </div>
           <div class="input-actions">
             <button type="button" class="clear-button" id="clearBtn">
               <svg class="icon icon-sm"><use href="#i-trash"></use></svg>
@@ -321,6 +329,11 @@
   </div>
 
   <div class="overlay" id="modalOverlay" hidden></div>
+
+  <div class="undo-toast" id="undoToast" hidden role="status" aria-live="polite">
+    <span>已清空原始文本</span>
+    <button type="button" id="undoClearBtn">撤销</button>
+  </div>
 
   <aside class="popover rule-popover" id="rulePopover" hidden aria-label="当前取价规则">
     <div class="drawer-head">
