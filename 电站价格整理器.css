@@ -4579,7 +4579,7 @@ body.v4 {
   right: 230px;
   display: grid;
   gap: 0;
-  width: 236px;
+  width: 304px;
   min-width: 0;
   padding: 8px;
   transform-origin: top center;
@@ -4655,16 +4655,6 @@ body.v4 {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8);
 }
 
-.v4 .config-popover .region-control .pretty-select,
-.v4 .config-popover .region-control .pretty-select-trigger {
-  width: 84px;
-}
-
-.v4 .config-popover .month-control .pretty-select,
-.v4 .config-popover .month-control .pretty-select-trigger {
-  width: 132px;
-}
-
 .v4 .config-popover .pretty-select-menu {
   right: 0;
   left: auto;
@@ -4706,24 +4696,6 @@ body.v4 {
   overflow: hidden;
   border-radius: 24px;
   box-sizing: border-box;
-}
-
-.v4 .modal.time-table-editor:not(.is-unlocked) {
-  width: min(680px, calc(100vw - 32px));
-  height: auto;
-  max-height: calc(100dvh - 32px);
-}
-
-.v4 .time-table-editor:not(.is-unlocked) .editor-access {
-  margin: 2px 24px 24px;
-  padding: 14px;
-}
-
-.v4 .time-table-editor:not(.is-unlocked) #editorKeyError {
-  grid-column: 1 / -1;
-  margin: 0;
-  color: var(--red);
-  font-size: 12px;
 }
 
 .v4 .time-table-editor .editor-header {
@@ -4842,7 +4814,7 @@ body.v4 {
   .v4 .config-popover {
     right: auto;
     left: 12px;
-    width: min(236px, calc(100vw - 24px));
+    width: min(304px, calc(100vw - 24px));
   }
 
   .v4 .modal.time-table-editor {
@@ -4864,12 +4836,6 @@ body.v4 {
     transform: translateY(0) scale(1);
   }
 
-  .v4 .modal.time-table-editor:not(.is-unlocked) {
-    width: 100%;
-    height: auto;
-    max-height: calc(100dvh - 8px);
-  }
-
   .v4 .time-table-editor .editor-header {
     padding: 18px 18px 13px;
   }
@@ -4881,5 +4847,262 @@ body.v4 {
   .v4 .time-table-editor .editor-sections {
     padding: 0 12px 8px;
     scrollbar-gutter: auto;
+  }
+}
+
+/* 2026-07 Apple-style polish: stable selectors and compact access state. */
+.v4 .config-popover {
+  width: 280px;
+}
+
+.v4 .config-popover .top-menu-heading {
+  margin-inline: 2px;
+  padding-inline: 8px;
+}
+
+.v4 .config-popover .header-control {
+  grid-template-columns: 72px 124px;
+  justify-content: start;
+  gap: 8px;
+  padding-left: 18px;
+}
+
+.v4 .config-popover .header-control label {
+  white-space: nowrap;
+}
+
+.v4 .config-popover .pretty-select,
+.v4 .config-popover .pretty-select-trigger,
+.v4 .config-popover .pretty-select-menu {
+  width: 124px;
+  min-width: 124px !important;
+  max-width: 124px;
+}
+
+.v4 .config-popover .pretty-select-trigger {
+  justify-content: space-between;
+  gap: 8px;
+  padding-inline: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.v4 .config-popover .pretty-select-value,
+.v4 .config-popover .pretty-select-option-label,
+.v4 .config-popover .pretty-select-option-label > span {
+  flex: 0 0 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.v4 .config-popover .pretty-select-option {
+  gap: 8px;
+  min-height: 38px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.v4 .modal.time-table-editor:not(.is-unlocked) {
+  width: min(820px, calc(100vw - 40px));
+  height: auto;
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  border-radius: 30px;
+}
+
+.v4 .time-table-editor:not(.is-unlocked) .editor-header {
+  padding: 28px 34px 22px;
+}
+
+.v4 .time-table-editor:not(.is-unlocked) .editor-kicker {
+  gap: 9px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.v4 .time-table-editor:not(.is-unlocked) .editor-kicker .icon {
+  width: 32px;
+  height: 32px;
+  padding: 7px;
+}
+
+.v4 .time-table-editor:not(.is-unlocked) .editor-header h2 {
+  margin-top: 10px;
+  font-size: clamp(32px, 3vw, 36px);
+  font-weight: 740;
+  line-height: 1.08;
+  letter-spacing: -.035em;
+}
+
+.v4 .time-table-editor:not(.is-unlocked) .editor-close {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  border: 1px solid rgba(29, 29, 31, .08);
+  background: rgba(246, 244, 242, .76);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .88);
+}
+
+.v4 .time-table-editor:not(.is-unlocked) .editor-access {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  margin: 0 34px 32px;
+  padding: 22px 24px 20px;
+  border: 1px solid rgba(214, 204, 196, .68);
+  border-radius: 20px;
+  background: rgba(255, 252, 249, .74);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .92);
+}
+
+.v4 .time-table-editor .editor-access-heading {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 10px;
+  color: #343638;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.v4 .time-table-editor .editor-access-heading .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+}
+
+.v4 .time-table-editor .editor-key-field {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.v4 .time-table-editor .editor-key-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.v4 .time-table-editor .editor-key-field input {
+  height: 50px;
+  padding-inline: 15px;
+  border-color: rgba(29, 29, 31, .14);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, .86);
+  color: #252729;
+  font-size: 15px;
+  font-weight: 560;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .92),
+    0 1px 2px rgba(53, 43, 36, .03);
+  transition:
+    border-color 150ms ease-out,
+    box-shadow 180ms ease-out,
+    background-color 150ms ease-out;
+}
+
+.v4 .time-table-editor .editor-key-field input::placeholder {
+  color: #a6a6aa;
+  font-weight: 500;
+}
+
+.v4 .time-table-editor .editor-key-field input:focus {
+  border-color: rgba(255, 107, 33, .64);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 107, 33, .11);
+}
+
+.v4 .time-table-editor:not(.is-unlocked) #editorUnlock {
+  min-width: 126px;
+  min-height: 50px;
+  padding-inline: 22px;
+  border-radius: 13px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.v4 .time-table-editor .editor-access-note,
+.v4 .time-table-editor #editorKeyError {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 560;
+  line-height: 1.4;
+}
+
+.v4 .time-table-editor .editor-access-note {
+  color: #8d8b89;
+}
+
+.v4 .time-table-editor .editor-access-note .icon {
+  color: rgba(255, 107, 33, .5);
+}
+
+.v4 .time-table-editor #editorKeyError {
+  color: #c34d32;
+}
+
+.v4 .time-table-editor #editorKeyError[hidden] {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .v4 .config-popover {
+    width: min(280px, calc(100vw - 24px));
+  }
+
+  .v4 .modal.time-table-editor:not(.is-unlocked) {
+    width: 100%;
+    height: auto;
+    max-height: calc(100dvh - 8px);
+    overflow: auto;
+  }
+
+  .v4 .time-table-editor:not(.is-unlocked) .editor-header {
+    padding: 22px 20px 18px;
+  }
+
+  .v4 .time-table-editor:not(.is-unlocked) .editor-header h2 {
+    margin-top: 10px;
+    font-size: 30px;
+  }
+
+  .v4 .time-table-editor:not(.is-unlocked) .editor-access {
+    margin: 0 16px 18px;
+    padding: 20px;
+  }
+}
+
+@media (max-width: 520px) {
+  .v4 .time-table-editor:not(.is-unlocked) .editor-access {
+    grid-template-columns: 1fr;
+  }
+
+  .v4 .time-table-editor:not(.is-unlocked) #editorUnlock {
+    width: 100%;
+  }
+}
+
+@media (max-width: 268px) {
+  .v4 .config-popover .header-control {
+    grid-template-columns: 1fr;
+  }
+
+  .v4 .config-popover .pretty-select,
+  .v4 .config-popover .pretty-select-trigger,
+  .v4 .config-popover .pretty-select-menu {
+    width: 100%;
+    min-width: 0 !important;
+    max-width: none;
   }
 }
