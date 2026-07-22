@@ -963,11 +963,125 @@ function rebuildNewEtuTimeRanges(lines,layout){
     return line.trim();
   }).filter(line=>line&&!NEW_ETU_DECORATIVE_LINE_PATTERN.test(line));
 }
+const NEW_ETU_PRICE_LABEL_PATTERN=/新电途站点价|会员价|活动价/;
+function splitNewEtuInlineTimeRanges(lines){
+  const rangePattern=/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/;
+  return lines.flatMap(line=>{
+    const match=line.match(rangePattern);
+    if(!match)return[line];
+    const time=normTime(match[0]);
+    if(!time)return[line];
+    const prefix=line.slice(0,match.index).trim();
+    const suffix=line.slice(match.index+match[0].length).trim();
+    return[prefix,time.label,suffix].filter(Boolean);
+  });
+}
+function newEtuPriceTokens(line){
+  return[...String(line).matchAll(/(?<![\d:])\d+\.\d{1,6}(?!\d)/g)].map(match=>({lineIndex:-1,startIndex:match.index,endIndex:match.index+match[0].length,raw:match[0],value:Number(match[0])})).filter(token=>token.value>=0.000001&&token.value<=3);
+}
+function splitNewEtuInlineLabelPrices(lines){
+  return lines.flatMap(line=>{
+    const labelMatch=line.match(NEW_ETU_PRICE_LABEL_PATTERN);
+    if(!labelMatch)return[line];
+    const tokens=newEtuPriceTokens(line);
+    if(!tokens.length)return[line];
+    let remainder=line;
+    const spans=[{startIndex:labelMatch.index,endIndex:labelMatch.index+labelMatch[0].length},...tokens];
+    for(const span of spans.sort((a,b)=>b.startIndex-a.startIndex))remainder=`${remainder.slice(0,span.startIndex)}${remainder.slice(span.endIndex)}`;
+    if(/[^元度\s/]/.test(remainder))return[line];
+    return[labelMatch[0],...tokens.map(token=>token.raw)];
+  });
+}
+function isNewEtuNumericPriceLine(line,tokens=newEtuPriceTokens(line)){
+  if(!tokens.length)return false;
+  let remainder=String(line);
+  for(const token of[...tokens].sort((a,b)=>b.startIndex-a.startIndex))remainder=`${remainder.slice(0,token.startIndex)}${remainder.slice(token.endIndex)}`;
+  return!/[^元度\s/]/.test(remainder);
+}
+function collectNewEtuLabelOccurrences(lines){
+  const occurrences=[];
+  lines.forEach((line,lineIndex)=>{
+    const labelMatch=line.match(NEW_ETU_PRICE_LABEL_PATTERN);
+    if(!labelMatch)return;
+    const priceSources=newEtuPriceTokens(line).map(token=>({...token,lineIndex}));
+    for(let index=lineIndex+1;index<lines.length;index++){
+      if(normTime(lines[index])||NEW_ETU_PRICE_LABEL_PATTERN.test(lines[index]))break;
+      const tokens=newEtuPriceTokens(lines[index]);
+      if(!isNewEtuNumericPriceLine(lines[index],tokens))break;
+      priceSources.push(...tokens.map(token=>({...token,lineIndex:index})));
+    }
+    occurrences.push({label:labelMatch[0],lineIndex,priceSources});
+  });
+  return occurrences;
+}
+function buildNewEtuLabelProfile(occurrences){
+  const byLabel=new Map();
+  for(const occurrence of occurrences){
+    if(!byLabel.has(occurrence.label))byLabel.set(occurrence.label,[]);
+    byLabel.get(occurrence.label).push(occurrence);
+  }
+  const profile=new Map();
+  for(const[label,items]of byLabel){
+    const onePriceCount=items.filter(item=>item.priceSources.length===1).length;
+    profile.set(label,{occurrenceCount:items.length,onePriceCount,expectedPriceCount:onePriceCount>=2&&onePriceCount/items.length>=.6?1:0,strong:onePriceCount>=2&&onePriceCount/items.length>=.6});
+  }
+  return profile;
+}
+function previousNewEtuStructure(lines,occurrenceByLine,startIndex){
+  for(let index=startIndex;index>=0;index--){
+    if(normTime(lines[index]))return{kind:"time",lineIndex:index};
+    if(occurrenceByLine.has(index))return{kind:"label",occurrence:occurrenceByLine.get(index)};
+    const tokens=newEtuPriceTokens(lines[index]);
+    if(tokens.length&&isNewEtuNumericPriceLine(lines[index],tokens))continue;
+  }
+  return null;
+}
+function repairNewEtuLabelPricePairs(lines){
+  const occurrences=collectNewEtuLabelOccurrences(lines);
+  const profile=buildNewEtuLabelProfile(occurrences);
+  const occurrenceByLine=new Map(occurrences.map(occurrence=>[occurrence.lineIndex,occurrence]));
+  const usedSources=new Set();
+  const removals=new Set();
+  const insertions=new Map();
+  for(const occurrence of occurrences){
+    const labelProfile=profile.get(occurrence.label);
+    if(!labelProfile?.strong||labelProfile.expectedPriceCount!==1||occurrence.priceSources.length)continue;
+    const sourceLineIndex=occurrence.lineIndex-1;
+    if(sourceLineIndex<0)continue;
+    const sourceTokens=newEtuPriceTokens(lines[sourceLineIndex]);
+    if(sourceTokens.length!==1||!isNewEtuNumericPriceLine(lines[sourceLineIndex],sourceTokens))continue;
+    const source={...sourceTokens[0],lineIndex:sourceLineIndex};
+    const sourceKey=`${source.lineIndex}:${source.startIndex}`;
+    if(usedSources.has(sourceKey))continue;
+    const previous=previousNewEtuStructure(lines,occurrenceByLine,sourceLineIndex-1);
+    let supported=previous?.kind==="time";
+    if(previous?.kind==="label"){
+      const previousOccurrence=previous.occurrence;
+      const previousProfile=profile.get(previousOccurrence.label);
+      const containsSource=previousOccurrence.priceSources.some(item=>item.lineIndex===source.lineIndex&&item.startIndex===source.startIndex);
+      const hasFormula=Boolean(findFormulaResolution(previousOccurrence.priceSources.map(item=>item.value)));
+      supported=Boolean(previousProfile?.strong&&previousProfile.expectedPriceCount===1&&previousOccurrence.priceSources.length>1&&containsSource&&!hasFormula);
+    }
+    if(!supported)continue;
+    usedSources.add(sourceKey);
+    removals.add(source.lineIndex);
+    if(!insertions.has(occurrence.lineIndex))insertions.set(occurrence.lineIndex,[]);
+    insertions.get(occurrence.lineIndex).push(source.raw);
+  }
+  const repaired=[];
+  lines.forEach((line,lineIndex)=>{
+    if(!removals.has(lineIndex))repaired.push(line);
+    if(insertions.has(lineIndex))repaired.push(...insertions.get(lineIndex));
+  });
+  return repaired;
+}
 function preprocessNewEtuText(text){
   const lines=preprocessGeneralText(text).replace(/\r\n?/g,"\n").split("\n").map(line=>line.trim()).filter(Boolean);
   const layout=scanNewEtuTimeLayout(lines);
-  if(layout.isolated.length<2)return lines.filter(line=>!NEW_ETU_DECORATIVE_LINE_PATTERN.test(line)).join("\n");
-  return rebuildNewEtuTimeRanges(lines,layout).join("\n");
+  const rangedLines=layout.isolated.length>=2?rebuildNewEtuTimeRanges(lines,layout):lines.filter(line=>!NEW_ETU_DECORATIVE_LINE_PATTERN.test(line));
+  const splitLines=splitNewEtuInlineTimeRanges(rangedLines);
+  const normalizedLabelLines=splitNewEtuInlineLabelPrices(splitLines);
+  return repairNewEtuLabelPricePairs(normalizedLabelLines).join("\n");
 }
 function preprocessInput(text,mode=currentParseMode){return mode==="newEtu"?preprocessNewEtuText(text):preprocessGeneralText(text);}
 function normalizeRawText(text){return String(text||"").replace(/\r/g,"\n").replace(/：/g,":").replace(/[～~—–至]/g,"-").replace(/(\d{1,2}:\d{2})\s*\n\s*-\s*\n?\s*(\d{1,2}:\d{2})/g,"$1-$2").replace(/(\d{1,2}:\d{2})\s*-\s*\n\s*(\d{1,2}:\d{2})/g,"$1-$2");}
@@ -1033,7 +1147,8 @@ function priceDetailForRawIndex(group,index){const token=group.rawPriceTokens?.[
 function uniquePriceDetails(details){const sorted=details.filter(detail=>Number.isFinite(Number(detail?.value))).map(detail=>({...detail,value:Number(detail.value),decimalPlaces:detail.decimalPlaces??rawDecimalPlaces(detail.raw)})).sort((a,b)=>a.value-b.value);const unique=[];for(const detail of sorted){const previous=unique[unique.length-1];if(previous&&pricesEqual(previous.value,detail.value)){if(normalizePricePrecision(detail.decimalPlaces)>normalizePricePrecision(previous.decimalPlaces))unique[unique.length-1]=detail;}else unique.push(detail);}return unique;}
 function setGroupPriceDetails(group,indexes){group.priceDetails=uniquePriceDetails(indexes.map(index=>priceDetailForRawIndex(group,index)));group.prices=group.priceDetails.map(detail=>detail.value);if(group.totalIndex>=0)group.totalPrecision=priceDetailForRawIndex(group,group.totalIndex).decimalPlaces;else if(group.priceDetails.length===1)group.totalPrecision=group.priceDetails[0].decimalPlaces;}
 function groupDisplayPrecision(group){return Math.max(MIN_PRICE_DECIMALS,...(group.rawPriceTokens||[]).map(token=>token.decimalPlaces||0));}
-function resolvePriceGroupTotals(groups){
+function isExplicitNewEtuTotalLabel(label){return NEW_ETU_PRICE_LABEL_PATTERN.test(String(label||""));}
+function resolvePriceGroupTotals(groups,{mode="general"}={}){
 for(const group of groups){
 group.rawPriceCount=group.rawPrices.length;group.formulaStatus="unknown";group.totalSource="unresolved";group.priceDetails=[];
 const electricity=group.componentEvidence.electricity;const service=group.componentEvidence.service;const adjustment=group.componentEvidence.adjustment||[];const hasAdjustment=adjustment.length>0;
@@ -1047,7 +1162,7 @@ const formula=findFormulaResolution(group.rawPrices);if(!formula)continue;group.
 }
 for(const group of groups){
 if(group.prices.length)continue;
-if(group.rawPrices.length===1){const value=group.rawPrices[0];if(value>=0.25&&value<=3){group.total=value;group.totalIndex=0;setGroupPriceDetails(group,[0]);group.evidence="single";group.totalSource="single";group.needsReview=true;group.warnings.push("价格组只有一个数字，无法校验组成项");}continue;}
+if(group.rawPrices.length===1){const value=group.rawPrices[0];if(value>=0.25&&value<=3){group.total=value;group.totalIndex=0;setGroupPriceDetails(group,[0]);const isNewEtuExplicitTotal=mode==="newEtu"&&isExplicitNewEtuTotalLabel(group.label);group.evidence=isNewEtuExplicitTotal?"new-etu-explicit-total":"single";group.totalSource=isNewEtuExplicitTotal?"new-etu-explicit-total":"single";if(!isNewEtuExplicitTotal){group.needsReview=true;group.warnings.push("价格组只有一个数字，无法校验组成项");}}continue;}
 const sameLabel=groups.filter(item=>normalizeLabel(item.label)===normalizeLabel(group.label)&&item.rawPrices.length===group.rawPrices.length);const sameShape=groups.filter(item=>item.rawPrices.length===group.rawPrices.length);let templateIndex=dominantTotalIndex(sameLabel,2,.67);if(templateIndex<0)templateIndex=dominantTotalIndex(sameShape,3,.75);
 if(templateIndex>=0&&templateIndex<group.rawPrices.length){const value=group.rawPrices[templateIndex];if(value>=0.25&&value<=3){group.total=value;group.totalIndex=templateIndex;setGroupPriceDetails(group,[templateIndex]);group.evidence="document-template";group.totalSource="document-template";group.needsReview=true;group.warnings.push("只能根据同一文本的数字位置推断总价。");if(group.rawPrices.length===3){const components=group.rawPrices.filter((_,index)=>index!==templateIndex);if(!formulaNearlyEqual(components[0]+components[1],value)){group.formulaStatus="conflict";group.conflict=true;group.warnings.push(`总价 ${formatPrice(value,group.totalPrecision)} 与组成项之和 ${formatPrice(components[0]+components[1],groupDisplayPrecision(group))} 不一致。`);}}}}
 }
@@ -1103,7 +1218,7 @@ function sectionVariant(section){return{label:section.label,priceDetails:section
 function parseSections(text,mode=currentParseMode){
 const lines=parseLines(preprocessInput(text,mode));
 const timeItems=extractTimeItems(lines);
-const groups=resolvePriceGroupTotals(enrichPriceGroupsWithTimeContext(extractPriceGroups(lines),timeItems));
+const groups=resolvePriceGroupTotals(enrichPriceGroupsWithTimeContext(extractPriceGroups(lines),timeItems),{mode});
 const documentProfile=buildDocumentProfile(timeItems,groups);
 const groupsByTime=assignGroupsToSections(timeItems,groups);
 const sections=timeItems.map((timeItem,pos)=>{const nextTimeIndex=pos<timeItems.length-1?timeItems[pos+1].index:lines.length;const sectionGroups=groupsByTime.get(timeItem.index)||[];const priceDetails=uniquePriceDetails(sectionGroups.flatMap(group=>group.priceDetails||[]));return{...timeItem,priceDetails,prices:priceDetails.map(detail=>detail.value),groups:sectionGroups,raw:lines.slice(timeItem.index,nextTimeIndex)};});
