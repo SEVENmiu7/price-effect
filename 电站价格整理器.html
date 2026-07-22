@@ -105,9 +105,14 @@
             <option value="history-mixed">历史样例：价格组前后混排</option>
             <option value="history-formula">历史样例：电费 + 服务费 = 总价</option>
             <option value="history-cross">历史样例：跨多个目标时段</option>
+            <option value="new-etu-three-prices">新电途：三种价格与孤立时间</option>
+            <option value="new-etu-trailing-label">新电途：后置标签与同行内容</option>
+            <option value="new-etu-single-price">新电途：单一价格与孤立时间</option>
           </select>
           <button type="button" id="loadSampleBtn">载入样例</button>
+          <button type="button" id="runAllSamplesBtn">运行全部样例</button>
         </div>
+        <div class="sample-regression-report" id="sampleRegressionReport" hidden></div>
         </div>
         <div id="sampleLock" hidden>
           <button type="button" class="sample-loader" id="unlockSamplesBtn">解锁内部样例</button>

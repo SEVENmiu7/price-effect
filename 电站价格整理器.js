@@ -215,7 +215,213 @@ YKC价
 服务费
 0.2610
 0.2610
-0.2505最高优惠5元`};const INTERNAL_SAMPLE_KEY="didichangsha";const regionSelect=document.getElementById("regionSelect");const effectiveMonth=document.getElementById("effectiveMonth");const rawInput=document.getElementById("rawInput");const sampleSelect=document.getElementById("sampleSelect");const resultBody=document.getElementById("resultBody");const noticeStack=document.getElementById("noticeStack");const copyPreview=document.getElementById("copyPreview");const copyLabels=document.getElementById("copyLabels");const auditBody=document.getElementById("auditBody");const commonOnlyToggle=document.getElementById("commonOnlyToggle");const commonModal=document.getElementById("commonModal");const copyModal=document.getElementById("copyModal");const modalOverlay=document.getElementById("modalOverlay");const rulePopover=document.getElementById("rulePopover");const helpDrawer=document.getElementById("helpDrawer");let resultRows=[];let parsedSections=[];const STORAGE_KEY="price-workbench-team-v02";const regionSelectionState={};let copyDraft=null;const HELP_SECTIONS=[{id:"basic",badge:"A",title:"基础设置",summary:"地区和月份：选择对应的时段配置",body:`<ul><li>全天时段：查看当天完整的峰谷划分</li><li>粘贴查价文本：怎样保留有效内容</li></ul>`},{id:"rules",badge:"B",title:"规则与常用设置",summary:"常用时段：保存、重新设置和清除",body:`<ul><li>价格如何选取：会员价和非会员价的规则</li></ul>`},{id:"output",badge:"C",title:"核对与输出",summary:"修改与复制：调整价格和输出顺序",body:`<ul><li>查看识别明细：检查截图时段和原始价格</li></ul>`}];
+0.2505最高优惠5元`};
+const regressionRow = (period, member, nonMember, status) => ({ period, member, nonMember, status });
+const missingRegressionRow = period => regressionRow(period, "", "", "missing");
+const REGRESSION_SAMPLES = {
+  "actual-fast": {
+    id: "actual-fast",
+    name: "实际截图转录：快电价 / VIP 价",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: SAMPLES["actual-fast"],
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.6400", "0.7200", "ok"),
+      regressionRow("06:00-12:00", "0.9860", "1.0500", "ok"),
+      regressionRow("12:00-14:00", "0.6400", "0.7200", "ok"),
+      regressionRow("14:00-16:00", "0.9860", "1.0500", "ok"),
+      regressionRow("16:00-24:00", "1.3760", "1.4400", "ok")
+    ]
+  },
+  "actual-diamond": {
+    id: "actual-diamond",
+    name: "实际截图转录：黑钻会员价 / 挂牌价",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: SAMPLES["actual-diamond"],
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.6463", "0.7300", "ok"),
+      regressionRow("06:00-12:00", "1.0700", "1.0700", "review"),
+      regressionRow("12:00-14:00", "0.7120", "0.8200", "ok"),
+      regressionRow("14:00-16:00", "1.0700", "1.0700", "review"),
+      regressionRow("16:00-24:00", "1.4500", "1.4500", "review")
+    ]
+  },
+  "actual-huazi": {
+    id: "actual-huazi",
+    name: "实际截图转录：华自价 / VIP 价",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: SAMPLES["actual-huazi"],
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.6000", "0.6600", "ok"),
+      regressionRow("06:00-12:00", "0.9100", "0.9700", "ok"),
+      regressionRow("12:00-14:00", "0.6900", "0.7300", "ok"),
+      regressionRow("14:00-16:00", "0.9100", "0.9700", "ok"),
+      regressionRow("16:00-24:00", "1.2500", "1.2900", "review")
+    ]
+  },
+  "actual-three": {
+    id: "actual-three",
+    name: "实际截图转录：三个价格取最低两个",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: SAMPLES["actual-three"],
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.6400", "0.7450", "ok"),
+      missingRegressionRow("06:00-12:00"),
+      missingRegressionRow("12:00-14:00"),
+      missingRegressionRow("14:00-16:00"),
+      missingRegressionRow("16:00-24:00")
+    ]
+  },
+  "history-mixed": {
+    id: "history-mixed",
+    name: "历史样例：价格组前后混排",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: SAMPLES["history-mixed"],
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.4700", "0.4900", "ok"),
+      regressionRow("06:00-12:00", "0.8000", "0.8200", "ok"),
+      regressionRow("12:00-14:00", "0.4700", "0.4900", "ok"),
+      missingRegressionRow("14:00-16:00"),
+      missingRegressionRow("16:00-24:00")
+    ]
+  },
+  "history-formula": {
+    id: "history-formula",
+    name: "历史样例：电费 + 服务费 = 总价",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: SAMPLES["history-formula"],
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.5208", "0.5208", "review"),
+      regressionRow("06:00-12:00", "0.8065", "0.8065", "review"),
+      regressionRow("12:00-14:00", "0.5208", "0.5208", "review"),
+      missingRegressionRow("14:00-16:00"),
+      missingRegressionRow("16:00-24:00")
+    ]
+  },
+  "history-cross": {
+    id: "history-cross",
+    name: "历史样例：跨多个目标时段",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: SAMPLES["history-cross"],
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.8695", "0.8800", "review"),
+      regressionRow("06:00-12:00", "0.8695", "0.8800", "ok"),
+      regressionRow("12:00-14:00", "0.8695", "0.8800", "ok"),
+      regressionRow("14:00-16:00", "0.8695", "0.8800", "ok"),
+      regressionRow("16:00-24:00", "0.8695", "0.8800", "ok")
+    ]
+  },
+  "new-etu-three-prices": {
+    id: "new-etu-three-prices",
+    name: "新电途：三种价格与孤立时间",
+    mode: "newEtu",
+    region: "changsha",
+    month: "2026-06",
+    input: `会员价
+0.6535
+00:00
+活动价
+0.7585
+06:00
+新电途站点价
+0.9200
+会员价
+0.9635
+06:00
+1.0685
+活动价
+12:00
+新电途站点价
+1.2300
+最低时段
+会员价
+0.6535
+12:00
+活动价
+0.7585
+14:00
+新电途站点价
+0.9200`,
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.6535", "0.7585", "ok"),
+      regressionRow("06:00-12:00", "0.9635", "1.0685", "ok"),
+      regressionRow("12:00-14:00", "0.6535", "0.7585", "ok"),
+      missingRegressionRow("14:00-16:00"),
+      missingRegressionRow("16:00-24:00")
+    ]
+  },
+  "new-etu-trailing-label": {
+    id: "new-etu-trailing-label",
+    name: "新电途：后置标签与同行内容",
+    mode: "newEtu",
+    region: "changsha",
+    month: "2026-06",
+    input: `00:00
+会员价
+0.6260
+新电途站点价0.6800
+06:00
+06:00
+会员价
+0.9300
+0.9800
+新电途站点价
+12:00
+12:00
+会员价
+0.6420
+14:00新电途站点价0.7000`,
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.6260", "0.6800", "ok"),
+      regressionRow("06:00-12:00", "0.9300", "0.9800", "ok"),
+      regressionRow("12:00-14:00", "0.6420", "0.7000", "ok"),
+      missingRegressionRow("14:00-16:00"),
+      missingRegressionRow("16:00-24:00")
+    ]
+  },
+  "new-etu-single-price": {
+    id: "new-etu-single-price",
+    name: "新电途：单一价格与孤立时间",
+    mode: "newEtu",
+    region: "changsha",
+    month: "2026-06",
+    input: `00:00
+新电途站点价
+0.6000
+06:00
+06:00
+新电途站点价
+0.8800
+12:00
+最低时段
+12:00
+新电途站点价
+0.6000
+14:00`,
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.6000", "0.6000", "review"),
+      regressionRow("06:00-12:00", "0.8800", "0.8800", "review"),
+      regressionRow("12:00-14:00", "0.6000", "0.6000", "review"),
+      missingRegressionRow("14:00-16:00"),
+      missingRegressionRow("16:00-24:00")
+    ]
+  }
+};
+for (const sample of Object.values(REGRESSION_SAMPLES)) SAMPLES[sample.id] = sample.input;
+const INTERNAL_SAMPLE_KEY="didichangsha";const regionSelect=document.getElementById("regionSelect");const effectiveMonth=document.getElementById("effectiveMonth");const rawInput=document.getElementById("rawInput");const sampleSelect=document.getElementById("sampleSelect");const resultBody=document.getElementById("resultBody");const noticeStack=document.getElementById("noticeStack");const copyPreview=document.getElementById("copyPreview");const copyLabels=document.getElementById("copyLabels");const auditBody=document.getElementById("auditBody");const commonOnlyToggle=document.getElementById("commonOnlyToggle");const commonModal=document.getElementById("commonModal");const copyModal=document.getElementById("copyModal");const modalOverlay=document.getElementById("modalOverlay");const rulePopover=document.getElementById("rulePopover");const helpDrawer=document.getElementById("helpDrawer");let resultRows=[];let parsedSections=[];const STORAGE_KEY="price-workbench-team-v02";const regionSelectionState={};let copyDraft=null;const HELP_SECTIONS=[{id:"basic",badge:"A",title:"基础设置",summary:"地区和月份：选择对应的时段配置",body:`<ul><li>全天时段：查看当天完整的峰谷划分</li><li>粘贴查价文本：怎样保留有效内容</li></ul>`},{id:"rules",badge:"B",title:"规则与常用设置",summary:"常用时段：保存、重新设置和清除",body:`<ul><li>价格如何选取：会员价和非会员价的规则</li></ul>`},{id:"output",badge:"C",title:"核对与输出",summary:"修改与复制：调整价格和输出顺序",body:`<ul><li>查看识别明细：检查截图时段和原始价格</li></ul>`}];
 let lastAnalysedText = "";
 let clearUndoText = "";
 let clearUndoTimer = 0;
@@ -474,6 +680,84 @@ function sectionPricePair(section){const prices=uniqueSorted(section.prices);if(
 function joinReviewNotes(notes){const unique=[...new Set(notes.map(note=>String(note||"").trim()).filter(Boolean))];if(!unique.length)return"";return`${unique.map(note=>note.replace(/[。；]+$/g,"")).join("；")}。`;}
 function appendSectionReviewNotes(section,notes){let needsReview=false;const groups=section.groups||[];const unresolvedGroups=groups.filter(group=>group.rawPrices?.length&&!group.prices?.length);const reviewGroups=groups.filter(group=>group.needsReview||group.conflict);for(const group of reviewGroups){needsReview=true;for(const warning of group.warnings)notes.push(`${group.label}：${warning}`);}if(unresolvedGroups.length){needsReview=true;notes.push(`${unresolvedGroups.map(group=>group.label).join("、")}：OCR 缺少关键数字，无法确认唯一总价。`);}if(section.meta?.needsReview){needsReview=true;notes.push(...section.meta.warnings);}const labelConflict=findLabelPriceConflict(groups);if(labelConflict){needsReview=true;notes.push(labelConflict);}return needsReview;}
 function chooseForTarget(sections,target){const start=toMin(target.start);const end=toMin(target.end);const matched=sections.filter(section=>section.end>start&&section.start<end);const available=matched.map(sectionPricePair).filter(Boolean);if(!available.length)return{member:"",nonMember:"",matched,available,status:"missing",note:"未识别到可信总价，电费和服务费不会作为总价兜底"};const ranked=[...available].sort((a,b)=>a.member-b.member||a.nonMember-b.nonMember);const best=ranked[0];const member=best.member;const nonMember=best.nonMember;const notes=[];let needsReview=false;for(const item of available)if(appendSectionReviewNotes(item.section,notes))needsReview=true;if(best.prices.length===1){needsReview=true;notes.push("只有一个可信总价，会员价和非会员价暂按同价处理。");}if(matched.length>1){needsReview=true;const pairSignatures=new Set(available.map(item=>`${item.member.toFixed(4)}/${item.nonMember.toFixed(4)}`));if(pairSignatures.size>1)notes.push("一个系统时段匹配多个截图时段，且价格不一致，请人工确认。");else notes.push("一个系统时段匹配多个截图时段，价格一致，请核对。");notes.push(`已采用 ${best.section.label} 的最低会员价及对应非会员价。`);}if(!needsReview)notes.push("总价公式成立，结构与归属正常，已按价格从低到高确定会员价和非会员价。");return{member,nonMember,matched,available,best,status:needsReview?"review":"ok",note:joinReviewNotes(notes)};}
+function regressionPeriodId(period) {
+  return `${period.start}-${period.end}`;
+}
+function getRegressionConfig(sample) {
+  const table = TIME_TABLE_DATA.regions[sample.region]?.tables?.[sample.month];
+  if (table) return { periods: table.periods.map(period => ({ ...period })) };
+  return REGION_CONFIGS[sample.region] || null;
+}
+function formatRegressionPrice(value, expected = "") {
+  if (value === "" || value === null || value === undefined) return "";
+  const decimalPlaces = String(expected).includes(".") ? String(expected).split(".")[1].length : 4;
+  return Number(value).toFixed(decimalPlaces);
+}
+function regressionPriceMatches(expected, actual) {
+  if (expected === "") return actual === "";
+  if (actual === "" || !Number.isFinite(Number(actual))) return false;
+  return Math.abs(Number(expected) - Number(actual)) <= 0.0000005;
+}
+function compareRegressionRow(expected, actual) {
+  const differences = [];
+  if (!actual) {
+    differences.push({ field: "时段", expected: expected.period, actual: "未生成", reason: "整理结果中没有生成该目标时段。" });
+    return differences;
+  }
+  if (!regressionPriceMatches(expected.member, actual.member)) {
+    differences.push({ field: "会员价", expected: expected.member || "空", actual: formatRegressionPrice(actual.member, expected.member) || "空", reason: actual.note || "会员价与业务预期不一致。" });
+  }
+  if (!regressionPriceMatches(expected.nonMember, actual.nonMember)) {
+    differences.push({ field: "非会员价", expected: expected.nonMember || "空", actual: formatRegressionPrice(actual.nonMember, expected.nonMember) || "空", reason: actual.note || "非会员价与业务预期不一致。" });
+  }
+  if (expected.status !== actual.status) {
+    differences.push({ field: "状态", expected: expected.status, actual: actual.status, reason: actual.note || "状态与业务预期不一致。" });
+  }
+  return differences;
+}
+function runRegressionSample(sample) {
+  const config = getRegressionConfig(sample);
+  if (!config) {
+    return { id: sample.id, name: sample.name, mode: sample.mode, passed: false, differences: [{ period: "配置", field: "地区与月份", expected: `${sample.region}/${sample.month}`, actual: "不存在", reason: "样例引用的地区或月份配置不存在。" }], actualRows: [] };
+  }
+  const sections = parseSections(sample.input);
+  const actualRows = config.periods.map(period => ({
+    period: regressionPeriodId(period),
+    ...chooseForTarget(sections, period)
+  }));
+  const actualByPeriod = new Map(actualRows.map(row => [row.period, row]));
+  const differences = sample.expectedRows.flatMap(expected => compareRegressionRow(expected, actualByPeriod.get(expected.period)).map(difference => ({ period: expected.period, ...difference })));
+  return {
+    id: sample.id,
+    name: sample.name,
+    mode: sample.mode,
+    region: sample.region,
+    month: sample.month,
+    passed: differences.length === 0,
+    differences,
+    expectedRows: sample.expectedRows,
+    actualRows: actualRows.map(row => ({ period: row.period, member: row.member, nonMember: row.nonMember, status: row.status, note: row.note })),
+    sectionCount: sections.length
+  };
+}
+function runAllRegressionSamples() {
+  const results = Object.values(REGRESSION_SAMPLES).map(runRegressionSample);
+  const passed = results.filter(result => result.passed).length;
+  return { total: results.length, passed, failed: results.length - passed, results };
+}
+function renderRegressionReport(report) {
+  const container = document.getElementById("sampleRegressionReport");
+  if (!container) return;
+  container.hidden = false;
+  const failures = report.results.filter(result => !result.passed);
+  const summaryClass = report.failed ? "has-failures" : "all-passed";
+  const failureHtml = failures.length ? failures.map(result => {
+    const differences = result.differences.map(difference => `<li><span>${escapeHtml(difference.period)} · ${escapeHtml(difference.field)}</span><small>预期：${escapeHtml(difference.expected)}；实际：${escapeHtml(difference.actual)}</small><small>原因：${escapeHtml(difference.reason)}</small></li>`).join("");
+    return `<details><summary>${escapeHtml(result.name)}<span>${result.differences.length} 项差异</span></summary><ul>${differences}</ul></details>`;
+  }).join("") : `<p>全部样例均符合当前业务预期。</p>`;
+  container.className = `sample-regression-report ${summaryClass}`;
+  container.innerHTML = `<div class="sample-regression-summary"><strong>共 ${report.total} 个样例，通过 ${report.passed} 个，失败 ${report.failed} 个</strong><span>${report.failed ? "失败项保留为后续规则修复依据" : "全部通过"}</span></div>${failureHtml}`;
+}
 function escapeHtml(value){return String(value??"").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 }
 let hasAnalysed = false;
@@ -1139,7 +1423,24 @@ document.getElementById("moreBtn")?.setAttribute("aria-expanded", "true");
 window.alert("密钥不正确");
 }
 });
-document.getElementById("loadSampleBtn").addEventListener("click", () => { rawInput.value = SAMPLES[sampleSelect.value]; updateInputCount(); closeTopMenus(); analyse(); });
+document.getElementById("loadSampleBtn").addEventListener("click", () => {
+const sample = REGRESSION_SAMPLES[sampleSelect.value];
+if (!sample) return;
+if (REGION_CONFIGS[sample.region]) {
+regionSelect.value = sample.region;
+populateMonthOptions(sample.region, sample.month);
+activateTimeTable(sample.region, sample.month);
+renderSchedule();
+updateConfigSummary();
+}
+rawInput.value = sample.input;
+updateInputCount();
+closeTopMenus();
+analyse();
+});
+document.getElementById("runAllSamplesBtn")?.addEventListener("click", () => {
+renderRegressionReport(runAllRegressionSamples());
+});
 document.getElementById("analyseBtn").addEventListener("click", analyse);
 document.getElementById("resetResultBtn")?.addEventListener("click", analyse);
 document.getElementById("clearBtn").addEventListener("click", clearRawInput);
@@ -1604,7 +1905,7 @@ document.getElementById("configPopover")?.insertAdjacentHTML("afterbegin", `<div
 document.getElementById("moreMenu")?.insertAdjacentHTML("afterbegin", `<div class="top-menu-heading"><strong>更多设置</strong><span>导出、说明与内部工具</span></div>`);
 setupScrollJumpControls();
 renderHelpLinks();
-window.PriceWorkbench = { parseSections, chooseForTarget, buildDocumentProfile, buildAssignmentCandidates, scoreAssignmentCandidate, findBestAssignmentPlan, REGION_CONFIGS };
+window.PriceWorkbench = { parseSections, chooseForTarget, buildDocumentProfile, buildAssignmentCandidates, scoreAssignmentCandidate, findBestAssignmentPlan, runRegressionSample, runAllRegressionSamples, REGRESSION_SAMPLES, REGION_CONFIGS };
 const startupParams = new URLSearchParams(window.location.search);
 const startupRegion = startupParams.get("region");
 populateRegionOptions(startupRegion || storedPreferences.lastRegion || "changsha");
