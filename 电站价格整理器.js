@@ -2033,9 +2033,12 @@ requestAnimationFrame(() => menu.classList.add("is-visible"));
 };
 const render = () => {
 const selected = select.options[select.selectedIndex];
-if (options.tone && selected) value.innerHTML = `<span class="editor-tone-dot tone-${escapeHtml(selected.value)}" aria-hidden="true"></span><span>${escapeHtml(selected.textContent)}</span>`;
-else value.textContent = selected?.textContent || "请选择";
-menu.innerHTML = [...select.options].map(option => `<button type="button" class="pretty-select-option${option.selected ? " selected" : ""}" role="option" aria-selected="${option.selected}" data-value="${escapeHtml(option.value)}"><span class="pretty-select-option-label">${options.tone ? `<span class="editor-tone-dot tone-${escapeHtml(option.value)}" aria-hidden="true"></span>` : ""}<span>${escapeHtml(option.textContent)}</span></span><span class="pretty-select-check">✓</span></button>`).join("");
+const selectedText=selected?.textContent?.trim()||"请选择";
+if (options.tone && selected) value.innerHTML = `<span class="editor-tone-dot tone-${escapeHtml(selected.value)}" aria-hidden="true"></span><span>${escapeHtml(selectedText)}</span>`;
+else value.textContent = selectedText;
+trigger.title=selectedText;
+trigger.setAttribute("aria-label",`${select.getAttribute("aria-label")||"选择项"}：${selectedText}`);
+menu.innerHTML = [...select.options].map(option => `<button type="button" class="pretty-select-option${option.selected ? " selected" : ""}" role="option" aria-selected="${option.selected}" data-value="${escapeHtml(option.value)}" title="${escapeHtml(option.textContent.trim())}"><span class="pretty-select-option-label">${options.tone ? `<span class="editor-tone-dot tone-${escapeHtml(option.value)}" aria-hidden="true"></span>` : ""}<span>${escapeHtml(option.textContent)}</span></span><span class="pretty-select-check">✓</span></button>`).join("");
 };
 trigger.addEventListener("click", event => {
 event.stopPropagation();

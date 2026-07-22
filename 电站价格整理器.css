@@ -2682,7 +2682,7 @@ body.v4.layer-active .app-shell {
 
 .v4 .sample-menu-section .sample-row:not([hidden]) {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   width: 100%;
   margin: 12px 0 0;
   padding: 12px 0 0;
@@ -2698,6 +2698,7 @@ body.v4.layer-active .app-shell {
 }
 
 .v4 .sample-menu-section .pretty-select {
+  grid-column: 1 / -1;
   min-width: 0;
 }
 
@@ -2713,8 +2714,41 @@ body.v4.layer-active .app-shell {
   white-space: nowrap;
 }
 
+.v4 .sample-menu-section .pretty-select-menu {
+  width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  transform-origin: top center;
+}
+
+.v4 .sample-menu-section .pretty-select-option {
+  min-height: 44px;
+  height: auto;
+  padding-block: 7px;
+}
+
+.v4 .sample-menu-section .pretty-select-option-label {
+  min-width: 0;
+  flex: 1;
+  line-height: 1.4;
+}
+
+.v4 .sample-menu-section .pretty-select-option-label > span:last-child {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.v4 .sample-menu-section .pretty-select-check {
+  flex: 0 0 auto;
+}
+
 .v4 .sample-menu-section #loadSampleBtn {
-  width: auto;
+  width: 100%;
   min-height: 42px;
   padding-inline: 15px;
   border-color: var(--brand);
@@ -2723,7 +2757,7 @@ body.v4.layer-active .app-shell {
 }
 
 .v4 .sample-menu-section #runAllSamplesBtn {
-  width: auto;
+  width: 100%;
   min-height: 42px;
   padding-inline: 15px;
   border-color: #d7ddd9;
