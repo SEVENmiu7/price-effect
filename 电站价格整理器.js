@@ -851,7 +851,124 @@ function restoreRegionPreset(){const config=REGION_CONFIGS[regionSelect.value];c
 function clearPersonalPreference(){const config=REGION_CONFIGS[regionSelect.value];const current=getRegionSelection();regionSelectionState[regionSelect.value]={selected:[...config.defaultOrder],order:[...config.defaultOrder],hasCustom:false,showCommonOnly:false,priceOrder:current.priceOrder};const next=readPreferences();if(next.regions)delete next.regions[regionSelect.value];writePreferences(next);resultRows.forEach(row=>{row.selected=config.defaultOrder.includes(periodId(row.period));});closeLayers();renderResults();noticeStack.insertAdjacentHTML("afterbegin",`<div class="notice">已清除个人设置，当前显示 ${config.name} 的全部时段。</div>`);}
 function toMin(text){const[h,m]=text.split(":").map(Number);return h*60+m;}
 function preprocessGeneralText(text){return String(text||"");}
-function preprocessNewEtuText(text){return preprocessGeneralText(text);}
+const NEW_ETU_DECORATIVE_LINE_PATTERN=/^最低时段$/;
+function scanNewEtuTimeLayout(lines){
+  const isolated=[];
+  const ranges=[];
+  const rangePattern=/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/g;
+  const timePattern=/(?<!\d)([01]?\d|2[0-4]):([0-5]\d)(?!\d)/g;
+  lines.forEach((line,lineIndex)=>{
+    const occupied=[];
+    for(const match of line.matchAll(rangePattern)){
+      const range=normTime(match[0]);
+      if(!range)continue;
+      occupied.push([match.index,match.index+match[0].length]);
+      ranges.push({...range,lineIndex,startIndex:match.index,endIndex:match.index+match[0].length});
+    }
+    for(const match of line.matchAll(timePattern)){
+      const startIndex=match.index;
+      const endIndex=startIndex+match[0].length;
+      if(occupied.some(([start,end])=>startIndex>=start&&endIndex<=end))continue;
+      const hour=Number(match[1]);
+      const minute=Number(match[2]);
+      if(hour===24&&minute!==0)continue;
+      isolated.push({id:`${lineIndex}:${startIndex}`,lineIndex,startIndex,endIndex,minutes:hour*60+minute,label:`${String(hour).padStart(2,"0")}:${String(minute).padStart(2,"0")}`});
+    }
+  });
+  return{isolated,ranges};
+}
+function splitNewEtuBoundarySegments(tokens){
+  const segments=[];
+  let current=[];
+  for(const token of tokens){
+    if(current.length&&token.minutes<current[current.length-1].minutes){
+      const previous=current[current.length-1];
+      if(previous.minutes!==1440||token.minutes!==0)return[];
+      segments.push(current);
+      current=[];
+    }
+    current.push(token);
+  }
+  if(current.length)segments.push(current);
+  return segments;
+}
+function isPairedNewEtuBoundaryLayout(tokens){
+  if(tokens.length<2||tokens.length%2!==0)return false;
+  for(let index=0;index<tokens.length;index+=2){
+    if(tokens[index].minutes>=tokens[index+1].minutes)return false;
+    if(index>0&&tokens[index-1].minutes!==tokens[index].minutes)return false;
+  }
+  return true;
+}
+function buildNewEtuBoundaryCandidates(tokens){
+  if(isPairedNewEtuBoundaryLayout(tokens)){
+    const pairs=[];
+    for(let index=0;index<tokens.length;index+=2)pairs.push({start:tokens[index],end:tokens[index+1]});
+    return pairs;
+  }
+  const runs=[];
+  for(const token of tokens){
+    const previous=runs[runs.length-1];
+    if(previous&&previous.minutes===token.minutes)previous.tokens.push(token);
+    else runs.push({minutes:token.minutes,tokens:[token]});
+  }
+  const pairs=[];
+  for(let index=0;index<runs.length-1;index++){
+    const start=runs[index].tokens[runs[index].tokens.length-1];
+    const end=runs[index+1].tokens[0];
+    if(start.minutes<end.minutes)pairs.push({start,end});
+  }
+  return pairs;
+}
+function hasNewEtuPriceEvidence(lines,startToken,endToken){
+  const content=lines.slice(startToken.lineIndex,endToken.lineIndex+1).join("\n");
+  return/\d+\.\d{1,6}/.test(content);
+}
+function classifyNewEtuRange(candidate,existingRanges){
+  const exact=existingRanges.some(range=>range.start===candidate.start.minutes&&range.end===candidate.end.minutes);
+  if(exact)return"duplicate";
+  const overlaps=existingRanges.some(range=>range.end>candidate.start.minutes&&range.start<candidate.end.minutes);
+  return overlaps?"conflict":"new";
+}
+function rebuildNewEtuTimeRanges(lines,layout){
+  const replacements=new Map();
+  const removals=new Set();
+  const candidates=splitNewEtuBoundarySegments(layout.isolated).flatMap(buildNewEtuBoundaryCandidates);
+  for(const candidate of candidates){
+    if(!hasNewEtuPriceEvidence(lines,candidate.start,candidate.end))continue;
+    const classification=classifyNewEtuRange(candidate,layout.ranges);
+    if(classification==="conflict")continue;
+    if(classification==="duplicate"){
+      removals.add(candidate.start.id);
+      removals.add(candidate.end.id);
+      continue;
+    }
+    replacements.set(candidate.start.id,`${candidate.start.label}-${candidate.end.label}`);
+    removals.delete(candidate.start.id);
+    if(!replacements.has(candidate.end.id))removals.add(candidate.end.id);
+  }
+  const tokensByLine=new Map();
+  for(const token of layout.isolated){
+    if(!replacements.has(token.id)&&!removals.has(token.id))continue;
+    if(!tokensByLine.has(token.lineIndex))tokensByLine.set(token.lineIndex,[]);
+    tokensByLine.get(token.lineIndex).push(token);
+  }
+  return lines.map((original,lineIndex)=>{
+    let line=original;
+    const tokens=(tokensByLine.get(lineIndex)||[]).sort((a,b)=>b.startIndex-a.startIndex);
+    for(const token of tokens){
+      const replacement=replacements.get(token.id)||"";
+      line=`${line.slice(0,token.startIndex)}${replacement}${line.slice(token.endIndex)}`;
+    }
+    return line.trim();
+  }).filter(line=>line&&!NEW_ETU_DECORATIVE_LINE_PATTERN.test(line));
+}
+function preprocessNewEtuText(text){
+  const lines=preprocessGeneralText(text).replace(/\r\n?/g,"\n").split("\n").map(line=>line.trim()).filter(Boolean);
+  const layout=scanNewEtuTimeLayout(lines);
+  if(layout.isolated.length<2)return lines.filter(line=>!NEW_ETU_DECORATIVE_LINE_PATTERN.test(line)).join("\n");
+  return rebuildNewEtuTimeRanges(lines,layout).join("\n");
+}
 function preprocessInput(text,mode=currentParseMode){return mode==="newEtu"?preprocessNewEtuText(text):preprocessGeneralText(text);}
 function normalizeRawText(text){return String(text||"").replace(/\r/g,"\n").replace(/：/g,":").replace(/[～~—–至]/g,"-").replace(/(\d{1,2}:\d{2})\s*\n\s*-\s*\n?\s*(\d{1,2}:\d{2})/g,"$1-$2").replace(/(\d{1,2}:\d{2})\s*-\s*\n\s*(\d{1,2}:\d{2})/g,"$1-$2");}
 function parseLines(text){return normalizeRawText(text).split("\n").map(line=>line.trim()).filter(Boolean);}
