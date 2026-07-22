@@ -635,8 +635,13 @@ const REGRESSION_SAMPLES = {
   }
 };
 for (const sample of Object.values(REGRESSION_SAMPLES)) SAMPLES[sample.id] = sample.input;
+const PARSE_MODES = {
+  general: "通用平台",
+  newEtu: "新电途"
+};
 const INTERNAL_SAMPLE_KEY="didichangsha";const regionSelect=document.getElementById("regionSelect");const effectiveMonth=document.getElementById("effectiveMonth");const rawInput=document.getElementById("rawInput");const sampleSelect=document.getElementById("sampleSelect");const resultBody=document.getElementById("resultBody");const noticeStack=document.getElementById("noticeStack");const copyPreview=document.getElementById("copyPreview");const copyLabels=document.getElementById("copyLabels");const auditBody=document.getElementById("auditBody");const commonOnlyToggle=document.getElementById("commonOnlyToggle");const commonModal=document.getElementById("commonModal");const copyModal=document.getElementById("copyModal");const modalOverlay=document.getElementById("modalOverlay");const rulePopover=document.getElementById("rulePopover");const helpDrawer=document.getElementById("helpDrawer");let resultRows=[];let parsedSections=[];const STORAGE_KEY="price-workbench-team-v02";const regionSelectionState={};let copyDraft=null;const HELP_SECTIONS=[{id:"basic",badge:"A",title:"基础设置",summary:"地区和月份：选择对应的时段配置",body:`<ul><li>全天时段：查看当天完整的峰谷划分</li><li>粘贴查价文本：怎样保留有效内容</li></ul>`},{id:"rules",badge:"B",title:"规则与常用设置",summary:"常用时段：保存、重新设置和清除",body:`<ul><li>价格如何选取：会员价和非会员价的规则</li></ul>`},{id:"output",badge:"C",title:"核对与输出",summary:"修改与复制：调整价格和输出顺序",body:`<ul><li>查看识别明细：检查截图时段和原始价格</li></ul>`}];
 let lastAnalysedText = "";
+let lastAnalysedMode = "general";
 let clearUndoText = "";
 let clearUndoTimer = 0;
 const layerHideTimers = new WeakMap();
@@ -836,14 +841,18 @@ rawInput.focus();
 function periodId(period){return`${period.start}-${period.end}|${period.name}`;}
 function readPreferences(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}")||{};}catch{return{};}}
 function writePreferences(value){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(value));}catch{/*本地存储不可用时仍可单次使用*/}}const storedPreferences=readPreferences();
+let currentParseMode = PARSE_MODES[storedPreferences.parseMode] ? storedPreferences.parseMode : "general";
 function validPeriodIds(regionKey){return new Set(REGION_CONFIGS[regionKey].periods.map(periodId));}
 function getRegionSelection(regionKey=regionSelect.value){if(regionSelectionState[regionKey])return regionSelectionState[regionKey];const config=REGION_CONFIGS[regionKey];const valid=validPeriodIds(regionKey);const saved=storedPreferences.regions?.[regionKey];const savedSelected=Array.isArray(saved?.selected)?saved.selected.filter(id=>valid.has(id)):[];const savedOrder=Array.isArray(saved?.order)?saved.order.filter(id=>valid.has(id)):[];const selected=savedSelected.length?savedSelected:[...config.defaultOrder];const order=[...savedOrder.filter(id=>selected.includes(id)),...selected.filter(id=>!savedOrder.includes(id))];regionSelectionState[regionKey]={selected,order,hasCustom:Boolean(saved),showCommonOnly:saved?saved.showCommonOnly!==false:false,priceOrder:saved?.priceOrder==="member-first"?"member-first":"nonmember-first"};return regionSelectionState[regionKey];}
-function persistGeneralPreferences(){const next=readPreferences();next.lastRegion=regionSelect.value;next.effectiveMonth=effectiveMonth.value;writePreferences(next);}
+function persistGeneralPreferences(){const next=readPreferences();next.lastRegion=regionSelect.value;next.effectiveMonth=effectiveMonth.value;next.parseMode=currentParseMode;writePreferences(next);}
 function persistRegionState(regionKey=regionSelect.value){const next=readPreferences();const state=getRegionSelection(regionKey);next.lastRegion=regionKey;next.effectiveMonth=effectiveMonth.value;next.regions=next.regions||{};next.regions[regionKey]={selected:[...state.selected],order:[...state.order],showCommonOnly:state.showCommonOnly,priceOrder:state.priceOrder};writePreferences(next);}
 function saveCurrentPreference(){const checked=[...document.querySelectorAll('#commonPeriodChoices input[type="checkbox"]:checked')].map(input=>input.value);if(!checked.length){window.alert("请至少选择一个常用时段");return;}const state=getRegionSelection();state.selected=checked;state.order=[...state.order.filter(id=>checked.includes(id)),...checked.filter(id=>!state.order.includes(id))];state.hasCustom=true;state.showCommonOnly=true;resultRows.forEach(row=>{row.selected=checked.includes(periodId(row.period));});persistRegionState();closeLayers();renderResults();noticeStack.insertAdjacentHTML("afterbegin",`<div class="notice">已保存 ${REGION_CONFIGS[regionSelect.value].name} 的常用时段。新文本会继续使用此设置。</div>`);}
 function restoreRegionPreset(){const config=REGION_CONFIGS[regionSelect.value];const current=getRegionSelection();regionSelectionState[regionSelect.value]={selected:[...config.defaultOrder],order:[...config.defaultOrder],hasCustom:true,showCommonOnly:true,priceOrder:current.priceOrder};resultRows.forEach(row=>{row.selected=config.defaultOrder.includes(periodId(row.period));});persistRegionState();renderCommonChoices();renderResults();}
 function clearPersonalPreference(){const config=REGION_CONFIGS[regionSelect.value];const current=getRegionSelection();regionSelectionState[regionSelect.value]={selected:[...config.defaultOrder],order:[...config.defaultOrder],hasCustom:false,showCommonOnly:false,priceOrder:current.priceOrder};const next=readPreferences();if(next.regions)delete next.regions[regionSelect.value];writePreferences(next);resultRows.forEach(row=>{row.selected=config.defaultOrder.includes(periodId(row.period));});closeLayers();renderResults();noticeStack.insertAdjacentHTML("afterbegin",`<div class="notice">已清除个人设置，当前显示 ${config.name} 的全部时段。</div>`);}
 function toMin(text){const[h,m]=text.split(":").map(Number);return h*60+m;}
+function preprocessGeneralText(text){return String(text||"");}
+function preprocessNewEtuText(text){return preprocessGeneralText(text);}
+function preprocessInput(text,mode=currentParseMode){return mode==="newEtu"?preprocessNewEtuText(text):preprocessGeneralText(text);}
 function normalizeRawText(text){return String(text||"").replace(/\r/g,"\n").replace(/：/g,":").replace(/[～~—–至]/g,"-").replace(/(\d{1,2}:\d{2})\s*\n\s*-\s*\n?\s*(\d{1,2}:\d{2})/g,"$1-$2").replace(/(\d{1,2}:\d{2})\s*-\s*\n\s*(\d{1,2}:\d{2})/g,"$1-$2");}
 function parseLines(text){return normalizeRawText(text).split("\n").map(line=>line.trim()).filter(Boolean);}
 function normTime(text){const normalized=String(text||"").replace(/：/g,":").replace(/[～~—–至]/g,"-");const match=normalized.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);if(!match)return null;const startH=Number(match[1]);const startM=Number(match[2]);const endH=Number(match[3]);const endM=Number(match[4]);if(startH>24||endH>24||startM>59||endM>59)return null;const start=startH*60+startM;let end=endH*60+endM;if(endM===59)end+=1;if(end===0&&start>0)end=1440;return{start,end,label:`${String(startH).padStart(2, "0")}:${String(startM).padStart(2, "0")}-${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`};}
@@ -974,8 +983,8 @@ function buildSectionReviewMeta(groups,documentProfile){const actualGroupCount=g
 function uniqueSorted(prices){const sorted=prices.map(Number).filter(Number.isFinite).sort((a,b)=>a-b);const unique=[];for(const price of sorted){if(!unique.length||!pricesEqual(unique[unique.length-1],price))unique.push(price);}return unique;}
 function sameResolvedGroups(leftGroups,rightGroups){if(leftGroups.length!==rightGroups.length)return false;for(let index=0;index<leftGroups.length;index++){const left=leftGroups[index];const right=rightGroups[index];if((left.normalizedLabel||normalizeLabel(left.label))!==(right.normalizedLabel||normalizeLabel(right.label)))return false;const leftPrices=left.priceDetails||[];const rightPrices=right.priceDetails||[];if(leftPrices.length!==rightPrices.length)return false;for(let priceIndex=0;priceIndex<leftPrices.length;priceIndex++)if(!pricesEqual(leftPrices[priceIndex].value,rightPrices[priceIndex].value))return false;}return true;}
 function sectionVariant(section){return{label:section.label,priceDetails:section.priceDetails,prices:section.prices,groups:section.groups};}
-function parseSections(text){
-const lines=parseLines(text);
+function parseSections(text,mode=currentParseMode){
+const lines=parseLines(preprocessInput(text,mode));
 const timeItems=extractTimeItems(lines);
 const groups=resolvePriceGroupTotals(enrichPriceGroupsWithTimeContext(extractPriceGroups(lines),timeItems));
 const documentProfile=buildDocumentProfile(timeItems,groups);
@@ -1070,7 +1079,7 @@ function runRegressionSample(sample) {
   if (!config) {
     return { id: sample.id, name: sample.name, mode: sample.mode, passed: false, differences: [{ period: "配置", field: "地区与月份", expected: `${sample.region}/${sample.month}`, actual: "不存在", reason: "样例引用的地区或月份配置不存在。" }], actualRows: [] };
   }
-  const sections = parseSections(sample.input);
+  const sections = parseSections(sample.input, sample.mode);
   const actualRows = config.periods.map(period => ({
     period: regressionPeriodId(period),
     ...chooseForTarget(sections, period)
@@ -1210,7 +1219,7 @@ noticeStack.innerHTML = `<div class="notice danger">请先粘贴 OCR 文本，�
 setInputWorkbenchState("idle");
 return;
 }
-parsedSections = parseSections(text);
+parsedSections = parseSections(text,currentParseMode);
 hasAnalysed = true;
 problemMode = false;
 const config = REGION_CONFIGS[regionSelect.value];
@@ -1220,6 +1229,7 @@ renderResults();
 renderNotices();
 renderAudit();
 lastAnalysedText = rawInput.value;
+lastAnalysedMode = currentParseMode;
 setInputWorkbenchState("analysed");
 }
 function renderCorePrices() {
@@ -1713,6 +1723,7 @@ return;
 }
 rawInput.value = "";
 lastAnalysedText = "";
+lastAnalysedMode = currentParseMode;
 updateInputCount();
 renderEmptyRows();
 showClearUndo(previousText);
@@ -1790,6 +1801,7 @@ window.alert("密钥不正确");
 document.getElementById("loadSampleBtn").addEventListener("click", () => {
 const sample = REGRESSION_SAMPLES[sampleSelect.value];
 if (!sample) return;
+setParseMode(sample.mode,{reanalyse:false});
 if (REGION_CONFIGS[sample.region]) {
 regionSelect.value = sample.region;
 populateMonthOptions(sample.region, sample.month);
@@ -1807,6 +1819,7 @@ renderRegressionReport(runAllRegressionSamples());
 });
 document.getElementById("analyseBtn").addEventListener("click", analyse);
 document.getElementById("resetResultBtn")?.addEventListener("click", analyse);
+document.querySelectorAll(".parse-mode-switch [data-parse-mode]").forEach(button=>button.addEventListener("click",()=>setParseMode(button.dataset.parseMode)));
 document.getElementById("clearBtn").addEventListener("click", clearRawInput);
 document.getElementById("undoClearBtn")?.addEventListener("click", undoClearRawInput);
 rawInput.addEventListener("input", () => {
@@ -1814,7 +1827,7 @@ updateInputCount();
 renderAudit();
 if (clearUndoText && rawInput.value) hideClearUndo();
 if (!rawInput.value.trim()) setInputWorkbenchState("idle");
-else if (rawInput.value !== lastAnalysedText) setInputWorkbenchState("dirty");
+else if (rawInput.value !== lastAnalysedText || currentParseMode !== lastAnalysedMode) setInputWorkbenchState("dirty");
 else setInputWorkbenchState("analysed");
 });
 rawInput.addEventListener("paste", () => { setTimeout(() => { updateInputCount(); analyse(); }, 0); });
@@ -2272,7 +2285,9 @@ document.getElementById("configPopover")?.insertAdjacentHTML("afterbegin", `<div
 document.getElementById("moreMenu")?.insertAdjacentHTML("afterbegin", `<div class="top-menu-heading"><strong>更多设置</strong><span>导出、说明与内部工具</span></div>`);
 setupScrollJumpControls();
 renderHelpLinks();
-window.PriceWorkbench = { parseSections, chooseForTarget, buildDocumentProfile, buildAssignmentCandidates, scoreAssignmentCandidate, findBestAssignmentPlan, runRegressionSample, runAllRegressionSamples, REGRESSION_SAMPLES, REGION_CONFIGS };
+function renderParseMode(){document.querySelectorAll(".parse-mode-switch [data-parse-mode]").forEach(button=>{const active=button.dataset.parseMode===currentParseMode;button.classList.toggle("active",active);button.setAttribute("aria-pressed",String(active));});document.body.dataset.parseMode=currentParseMode;}
+function setParseMode(mode,{persist=true,reanalyse=true}={}){if(!PARSE_MODES[mode])return;const changed=currentParseMode!==mode;currentParseMode=mode;renderParseMode();if(persist)persistGeneralPreferences();if(changed&&reanalyse&&rawInput.value.trim())analyse();}
+window.PriceWorkbench = { parseSections, chooseForTarget, buildDocumentProfile, buildAssignmentCandidates, scoreAssignmentCandidate, findBestAssignmentPlan, preprocessInput, setParseMode, runRegressionSample, runAllRegressionSamples, PARSE_MODES, REGRESSION_SAMPLES, REGION_CONFIGS };
 const startupParams = new URLSearchParams(window.location.search);
 const startupRegion = startupParams.get("region");
 populateRegionOptions(startupRegion || storedPreferences.lastRegion || "changsha");
@@ -2282,6 +2297,8 @@ populateMonthOptions(regionSelect.value, startupParams.get("month") || storedPre
 enhancePrettySelect(regionSelect);
 enhancePrettySelect(effectiveMonth);
 enhancePrettySelect(sampleSelect);
+renderParseMode();
+lastAnalysedMode=currentParseMode;
 updateConfigSummary();
 updateInputCount();
 renderSchedule();
