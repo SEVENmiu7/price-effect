@@ -95,9 +95,11 @@
           <button type="button" class="more-action-card" data-more-action="help"><span class="more-action-icon">?</span><span><strong>使用说明</strong><small>查看录入与核对方法</small></span></button>
         </div>
         <div class="sample-menu-section">
-          <div class="sample-menu-head"><span><strong>内部样例</strong><small>仅用于内部回归核验</small></span><button type="button" data-more-action="samples">验证密钥</button></div>
-        <div class="sample-row" id="sampleTools" hidden>
-          <select id="sampleSelect" aria-label="回归样例">
+          <div class="sample-menu-head">
+            <span class="sample-menu-title"><strong>内部样例</strong><small>仅用于内部回归核验</small></span>
+            <div class="sample-menu-head-actions">
+              <div class="sample-picker" id="samplePicker" hidden>
+                <select id="sampleSelect" aria-label="回归样例">
             <option value="actual-fast">实际截图转录：快电价 / VIP 价</option>
             <option value="actual-diamond">实际截图转录：黑钻会员价 / 挂牌价</option>
             <option value="actual-huazi">实际截图转录：华自价 / VIP 价</option>
@@ -116,7 +118,12 @@
             <option value="general-adjusted-formula-ambiguous">通用规则：无标签四数字保持缺失</option>
             <option value="general-duplicate-identical">通用规则：重复时段内容一致</option>
             <option value="general-duplicate-conflict">通用规则：重复时段价格冲突</option>
-          </select>
+                </select>
+              </div>
+              <button type="button" data-more-action="samples">验证密钥</button>
+            </div>
+          </div>
+        <div class="sample-row" id="sampleTools" hidden>
           <button type="button" id="loadSampleBtn">载入样例</button>
           <button type="button" id="runAllSamplesBtn">运行全部样例</button>
         </div>

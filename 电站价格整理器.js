@@ -1771,6 +1771,7 @@ const key = window.prompt("请输入内部样例密钥");
 if (key === INTERNAL_SAMPLE_KEY) {
 document.getElementById("sampleLock").hidden = true;
 document.getElementById("sampleTools").hidden = false;
+document.getElementById("samplePicker").hidden = false;
 const sampleSection = document.querySelector(".sample-menu-section");
 sampleSection?.classList.add("unlocked");
 const sampleNote = sampleSection?.querySelector(".sample-menu-head small");
