@@ -418,6 +418,44 @@ const REGRESSION_SAMPLES = {
       missingRegressionRow("14:00-16:00"),
       missingRegressionRow("16:00-24:00")
     ]
+  },
+  "precision-five-decimals": {
+    id: "precision-five-decimals",
+    name: "价格精度：五位小数保留",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: `00:00-06:00
+会员价
+0.65350
+非会员价
+0.75855`,
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.65350", "0.75855", "review"),
+      missingRegressionRow("06:00-12:00"),
+      missingRegressionRow("12:00-14:00"),
+      missingRegressionRow("14:00-16:00"),
+      missingRegressionRow("16:00-24:00")
+    ]
+  },
+  "precision-fifth-digit-distinct": {
+    id: "precision-fifth-digit-distinct",
+    name: "价格精度：第五位差异不得合并",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: `00:00-06:00
+会员价
+0.65351
+非会员价
+0.65359`,
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.65351", "0.65359", "review"),
+      missingRegressionRow("06:00-12:00"),
+      missingRegressionRow("12:00-14:00"),
+      missingRegressionRow("14:00-16:00"),
+      missingRegressionRow("16:00-24:00")
+    ]
   }
 };
 for (const sample of Object.values(REGRESSION_SAMPLES)) SAMPLES[sample.id] = sample.input;
@@ -634,25 +672,62 @@ function normalizeRawText(text){return String(text||"").replace(/\r/g,"\n").repl
 function parseLines(text){return normalizeRawText(text).split("\n").map(line=>line.trim()).filter(Boolean);}
 function normTime(text){const normalized=String(text||"").replace(/：/g,":").replace(/[～~—–至]/g,"-");const match=normalized.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);if(!match)return null;const startH=Number(match[1]);const startM=Number(match[2]);const endH=Number(match[3]);const endM=Number(match[4]);if(startH>24||endH>24||startM>59||endM>59)return null;const start=startH*60+startM;let end=endH*60+endM;if(endM===59)end+=1;if(end===0&&start>0)end=1440;return{start,end,label:`${String(startH).padStart(2, "0")}:${String(startM).padStart(2, "0")}-${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`};}
 function extractTimeItems(lines){const timeItems=[];lines.forEach((line,index)=>{const time=normTime(line);if(time)timeItems.push({index,...time,rawLine:line});});return timeItems;}
-function getPositiveNumbers(line,minValue=0.1){if(normTime(line))return[];return[...String(line).matchAll(/(?<![-－])\b\d+(?:\.\d{1,4})\b/g)].map(match=>Number(match[0])).filter(value=>value>=minValue&&value<=3);}
-function isNumericOnlyLine(line){const normalized=String(line).replace(/[元度\s/]/g,"");return/^\d+(?:\.\d{1,4})$/.test(normalized);}
+const MIN_PRICE_DECIMALS = 4;
+const MAX_PRICE_DECIMALS = 6;
+const PRICE_EQUAL_TOLERANCE = 0.000005;
+const FORMULA_TOLERANCE = 0.00005;
+function rawDecimalPlaces(value) {
+  const match = String(value ?? "").trim().match(/\.(\d+)/);
+  return match ? match[1].length : 0;
+}
+function normalizePricePrecision(decimalPlaces) {
+  const value = Number.isFinite(Number(decimalPlaces)) ? Number(decimalPlaces) : MIN_PRICE_DECIMALS;
+  return Math.min(MAX_PRICE_DECIMALS, Math.max(MIN_PRICE_DECIMALS, value));
+}
+function formatPrice(value, decimalPlaces = MIN_PRICE_DECIMALS) {
+  if (value === "" || value === null || value === undefined || !Number.isFinite(Number(value))) return "";
+  return Number(value).toFixed(normalizePricePrecision(decimalPlaces));
+}
+function getPriceTokens(line,minValue=0.1){if(normTime(line))return[];return[...String(line).matchAll(/(?<![-－])\b\d+(?:\.\d{1,6})\b/g)].map(match=>({value:Number(match[0]),raw:match[0],decimalPlaces:rawDecimalPlaces(match[0])})).filter(token=>token.value>=minValue&&token.value<=3);}
+function getPositiveNumbers(line,minValue=0.1){return getPriceTokens(line,minValue).map(token=>token.value);}
+function isNumericOnlyLine(line){const normalized=String(line).replace(/[元度\s/]/g,"");return/^\d+(?:\.\d{1,6})$/.test(normalized);}
 function isIgnoreLabel(line){return/电费|服务费|优惠金额|最高优惠|立减|已减|已降|补贴|省\d|当前时间|更新时间/.test(line);}
 function isPriceLabel(line){if(isIgnoreLabel(line)||normTime(line))return false;return/会员|VIP|黑钻|优惠价|挂牌价|电站价|站点价|快电价|闪联价|华自价|YKC价|原价|折扣价|专享|活动价|充电单价|充电总价|合计|应付金额|当前价|收费金额/.test(line);}
-function nearlyEqual(a,b){return Math.abs(a-b)<=0.0005;}
-function formulaTotal(window){if(window.length===3){if(nearlyEqual(window[0]+window[1],window[2]))return{total:window[2],index:2,kind:"sum"};if(nearlyEqual(window[1]+window[2],window[0]))return{total:window[0],index:0,kind:"sum"};if(nearlyEqual(window[0]+window[2],window[1]))return{total:window[1],index:1,kind:"sum"};}if(window.length===4){if(nearlyEqual(window[0]+window[1]-window[2],window[3]))return{total:window[3],index:3,kind:"adjusted"};if(nearlyEqual(window[1]+window[2]-window[3],window[0]))return{total:window[0],index:0,kind:"adjusted"};}return null;}
-function findFormulaResolution(prices){const matches=[];for(let size of[4,3]){for(let start=0;start+size<=prices.length;start++){const relation=formulaTotal(prices.slice(start,start+size));if(relation&&relation.total>=0.25&&relation.total<=3)matches.push({...relation,index:start+relation.index});}}const totals=uniqueSorted(matches.map(item=>item.total));if(totals.length!==1)return null;const match=matches.find(item=>nearlyEqual(item.total,totals[0]));return{...match,total:totals[0]};}
-function collectGroupNumbers(lines,startIndex){const prices=[];let endIndex=startIndex-1;for(let i=startIndex;i<lines.length;i++){if(normTime(lines[i])||isPriceLabel(lines[i])||isIgnoreLabel(lines[i]))break;const nums=getPositiveNumbers(lines[i]);if(nums.length)prices.push(...nums);endIndex=i;}return{endIndex,prices};}
+function pricesEqual(a,b){return Math.abs(a-b)<=PRICE_EQUAL_TOLERANCE;}
+function formulaNearlyEqual(a,b){return Math.abs(a-b)<=FORMULA_TOLERANCE;}
+function formulaTotal(window){if(window.length===3){if(formulaNearlyEqual(window[0]+window[1],window[2]))return{total:window[2],index:2,kind:"sum"};if(formulaNearlyEqual(window[1]+window[2],window[0]))return{total:window[0],index:0,kind:"sum"};if(formulaNearlyEqual(window[0]+window[2],window[1]))return{total:window[1],index:1,kind:"sum"};}if(window.length===4){if(formulaNearlyEqual(window[0]+window[1]-window[2],window[3]))return{total:window[3],index:3,kind:"adjusted"};if(formulaNearlyEqual(window[1]+window[2]-window[3],window[0]))return{total:window[0],index:0,kind:"adjusted"};}return null;}
+function findFormulaResolution(prices){const matches=[];for(let size of[4,3]){for(let start=0;start+size<=prices.length;start++){const relation=formulaTotal(prices.slice(start,start+size));if(relation&&relation.total>=0.25&&relation.total<=3)matches.push({...relation,index:start+relation.index});}}const totals=uniqueSorted(matches.map(item=>item.total));if(totals.length!==1)return null;const match=matches.find(item=>pricesEqual(item.total,totals[0]));return{...match,total:totals[0]};}
+function collectGroupNumbers(lines,startIndex){const tokens=[];let endIndex=startIndex-1;for(let i=startIndex;i<lines.length;i++){if(normTime(lines[i])||isPriceLabel(lines[i])||isIgnoreLabel(lines[i]))break;const lineTokens=getPriceTokens(lines[i]);if(lineTokens.length)tokens.push(...lineTokens);endIndex=i;}return{endIndex,prices:tokens.map(token=>token.value),tokens};}
 function collectExplicitComponents(lines,startIndex){const result={electricity:[],service:[]};let kind="";for(let i=startIndex;i<lines.length;i++){if(normTime(lines[i])||isPriceLabel(lines[i]))break;if(/电费/.test(lines[i]))kind="electricity";else if(/服务费/.test(lines[i]))kind="service";const numbers=getPositiveNumbers(lines[i]);if(kind&&numbers.length)result[kind].push(...numbers);else if(isIgnoreLabel(lines[i])&&!/电费|服务费/.test(lines[i]))kind="";}return result;}
-function createPriceGroup(label,start,end,rawPrices,componentEvidence={electricity:[],service:[]}){return{label,start,end,rawPrices:[...rawPrices],componentEvidence,prices:[],total:null,totalIndex:-1,evidence:"unresolved",needsReview:false,conflict:false,warnings:[],formulaStatus:"unknown",totalSource:"unresolved",rawPriceCount:rawPrices.length};}
-function parsePriceGroups(lines){const groups=[];let i=0;while(i<lines.length){if(normTime(lines[i])){i++;continue;}if(isIgnoreLabel(lines[i])){i++;while(i<lines.length&&!normTime(lines[i])&&!isPriceLabel(lines[i]))i++;continue;}if(isPriceLabel(lines[i])){const sameLine=getPositiveNumbers(lines[i]);const collected=collectGroupNumbers(lines,i+1);const rawPrices=[...sameLine,...collected.prices];if(rawPrices.length){groups.push(createPriceGroup(lines[i],i,collected.endIndex,rawPrices,collectExplicitComponents(lines,collected.endIndex+1)));}else{let timeIndex=-1;for(let j=i+1;j<lines.length;j++){if(isPriceLabel(lines[j]))break;if(normTime(lines[j])){timeIndex=j;break;}}if(timeIndex!==-1){const afterTime=collectGroupNumbers(lines,timeIndex+1);if(afterTime.prices.length){groups.push(createPriceGroup(lines[i],timeIndex+1,afterTime.endIndex,afterTime.prices,collectExplicitComponents(lines,afterTime.endIndex+1)));i=Math.max(afterTime.endIndex+1,i+1);continue;}}}i=Math.max(collected.endIndex+1,i+1);continue;}if(getPositiveNumbers(lines[i]).length){const collected=collectGroupNumbers(lines,i);if(collected.prices.length)groups.push(createPriceGroup("未标注价格组",i,collected.endIndex,collected.prices,collectExplicitComponents(lines,collected.endIndex+1)));i=collected.endIndex+1;continue;}i++;}return groups;}
+function createPriceGroup(label,start,end,rawPrices,componentEvidence={electricity:[],service:[]},rawPriceTokens=[]){return{label,start,end,rawPrices:[...rawPrices],rawPriceTokens:rawPriceTokens.length?[...rawPriceTokens]:rawPrices.map(value=>({value,raw:String(value),decimalPlaces:rawDecimalPlaces(value)})),componentEvidence,prices:[],priceDetails:[],total:null,totalIndex:-1,totalPrecision:MIN_PRICE_DECIMALS,evidence:"unresolved",needsReview:false,conflict:false,warnings:[],formulaStatus:"unknown",totalSource:"unresolved",rawPriceCount:rawPrices.length};}
+function parsePriceGroups(lines){const groups=[];let i=0;while(i<lines.length){if(normTime(lines[i])){i++;continue;}if(isIgnoreLabel(lines[i])){i++;while(i<lines.length&&!normTime(lines[i])&&!isPriceLabel(lines[i]))i++;continue;}if(isPriceLabel(lines[i])){const sameLineTokens=getPriceTokens(lines[i]);const collected=collectGroupNumbers(lines,i+1);const rawPriceTokens=[...sameLineTokens,...collected.tokens];const rawPrices=rawPriceTokens.map(token=>token.value);if(rawPrices.length){groups.push(createPriceGroup(lines[i],i,collected.endIndex,rawPrices,collectExplicitComponents(lines,collected.endIndex+1),rawPriceTokens));}else{let timeIndex=-1;for(let j=i+1;j<lines.length;j++){if(isPriceLabel(lines[j]))break;if(normTime(lines[j])){timeIndex=j;break;}}if(timeIndex!==-1){const afterTime=collectGroupNumbers(lines,timeIndex+1);if(afterTime.prices.length){groups.push(createPriceGroup(lines[i],timeIndex+1,afterTime.endIndex,afterTime.prices,collectExplicitComponents(lines,afterTime.endIndex+1),afterTime.tokens));i=Math.max(afterTime.endIndex+1,i+1);continue;}}}i=Math.max(collected.endIndex+1,i+1);continue;}if(getPositiveNumbers(lines[i]).length){const collected=collectGroupNumbers(lines,i);if(collected.prices.length)groups.push(createPriceGroup("未标注价格组",i,collected.endIndex,collected.prices,collectExplicitComponents(lines,collected.endIndex+1),collected.tokens));i=collected.endIndex+1;continue;}i++;}return groups;}
 function extractPriceGroups(lines){return parsePriceGroups(lines).map((group,index)=>({...group,id:`price-group-${index+1}`,normalizedLabel:normalizeLabel(group.label)}));}
 function dominantTotalIndex(groups,minVotes,minRatio){const votes=new Map();for(const group of groups){if(group.evidence!=="formula"||group.totalIndex<0)continue;votes.set(group.totalIndex,(votes.get(group.totalIndex)||0)+1);}const ranked=[...votes.entries()].sort((a,b)=>b[1]-a[1]);if(!ranked.length)return-1;const totalVotes=ranked.reduce((sum,item)=>sum+item[1],0);return ranked[0][1]>=minVotes&&ranked[0][1]/totalVotes>=minRatio?ranked[0][0]:-1;}
-function resolvePriceGroupTotals(groups){for(const group of groups){group.rawPriceCount=group.rawPrices.length;group.formulaStatus="unknown";group.totalSource="unresolved";const electricity=group.componentEvidence.electricity;const service=group.componentEvidence.service;if(electricity.length&&service.length){const checkedCount=Math.min(group.rawPrices.length,electricity.length,service.length);const validated=[];for(let index=0;index<checkedCount;index++){if(nearlyEqual(electricity[index]+service[index],group.rawPrices[index]))validated.push(group.rawPrices[index]);}if(validated.length){group.prices=uniqueSorted(validated);group.total=group.prices.length===1?group.prices[0]:null;group.evidence="parallel-formula";group.totalSource="parallel-formula";group.formulaStatus=validated.length<checkedCount?"partial":"passed";if(validated.length<group.rawPrices.length){group.formulaStatus="partial";group.needsReview=true;group.conflict=true;group.warnings.push("部分显示总价与对应电费、服务费之和不一致。");}continue;}if(checkedCount===1){const componentSum=electricity[0]+service[0];group.total=group.rawPrices[0];group.totalIndex=0;group.prices=[group.total];group.evidence="explicit-component-conflict";group.totalSource="explicit-component-conflict";group.formulaStatus="conflict";group.needsReview=true;group.conflict=true;group.warnings.push(`总价 ${group.total.toFixed(4)} 与电费、服务费之和 ${componentSum.toFixed(4)} 不一致。`);continue;}}
-const formula=findFormulaResolution(group.rawPrices);if(!formula)continue;group.total=formula.total;group.totalIndex=formula.index;group.evidence="formula";group.totalSource="formula";group.formulaStatus="passed";group.prices=[formula.total];}
-for(const group of groups){if(group.prices.length)continue;if(group.rawPrices.length===1){const value=group.rawPrices[0];if(value>=0.25&&value<=3){group.total=value;group.totalIndex=0;group.evidence="single";group.totalSource="single";group.prices=[value];group.needsReview=true;group.warnings.push("价格组只有一个数字，无法校验组成项");}continue;}
-const sameLabel=groups.filter(item=>normalizeLabel(item.label)===normalizeLabel(group.label)&&item.rawPrices.length===group.rawPrices.length);const sameShape=groups.filter(item=>item.rawPrices.length===group.rawPrices.length);let templateIndex=dominantTotalIndex(sameLabel,2,.67);if(templateIndex<0)templateIndex=dominantTotalIndex(sameShape,3,.75);if(templateIndex>=0&&templateIndex<group.rawPrices.length){const value=group.rawPrices[templateIndex];if(value>=0.25&&value<=3){group.total=value;group.totalIndex=templateIndex;group.evidence="document-template";group.totalSource="document-template";group.prices=[value];group.needsReview=true;group.warnings.push("只能根据同一文本的数字位置推断总价。");if(group.rawPrices.length===3){const components=group.rawPrices.filter((_,index)=>index!==templateIndex);if(!nearlyEqual(components[0]+components[1],value)){group.formulaStatus="conflict";group.conflict=true;group.warnings.push(`总价 ${value.toFixed(4)} 与组成项之和 ${(components[0]+components[1]).toFixed(4)} 不一致。`);}}}}}
+function priceDetailForRawIndex(group,index){const token=group.rawPriceTokens?.[index];return{value:group.rawPrices[index],raw:token?.raw??String(group.rawPrices[index]),decimalPlaces:token?.decimalPlaces??rawDecimalPlaces(group.rawPrices[index])};}
+function uniquePriceDetails(details){const sorted=details.filter(detail=>Number.isFinite(Number(detail?.value))).map(detail=>({...detail,value:Number(detail.value),decimalPlaces:detail.decimalPlaces??rawDecimalPlaces(detail.raw)})).sort((a,b)=>a.value-b.value);const unique=[];for(const detail of sorted){const previous=unique[unique.length-1];if(previous&&pricesEqual(previous.value,detail.value)){if(normalizePricePrecision(detail.decimalPlaces)>normalizePricePrecision(previous.decimalPlaces))unique[unique.length-1]=detail;}else unique.push(detail);}return unique;}
+function setGroupPriceDetails(group,indexes){group.priceDetails=uniquePriceDetails(indexes.map(index=>priceDetailForRawIndex(group,index)));group.prices=group.priceDetails.map(detail=>detail.value);if(group.totalIndex>=0)group.totalPrecision=priceDetailForRawIndex(group,group.totalIndex).decimalPlaces;else if(group.priceDetails.length===1)group.totalPrecision=group.priceDetails[0].decimalPlaces;}
+function groupDisplayPrecision(group){return Math.max(MIN_PRICE_DECIMALS,...(group.rawPriceTokens||[]).map(token=>token.decimalPlaces||0));}
+function resolvePriceGroupTotals(groups){
+for(const group of groups){
+group.rawPriceCount=group.rawPrices.length;group.formulaStatus="unknown";group.totalSource="unresolved";group.priceDetails=[];
+const electricity=group.componentEvidence.electricity;const service=group.componentEvidence.service;
+if(electricity.length&&service.length){
+const checkedCount=Math.min(group.rawPrices.length,electricity.length,service.length);const validatedIndexes=[];
+for(let index=0;index<checkedCount;index++){if(formulaNearlyEqual(electricity[index]+service[index],group.rawPrices[index]))validatedIndexes.push(index);}
+if(validatedIndexes.length){setGroupPriceDetails(group,validatedIndexes);group.total=group.prices.length===1?group.prices[0]:null;group.evidence="parallel-formula";group.totalSource="parallel-formula";group.formulaStatus=validatedIndexes.length<checkedCount?"partial":"passed";if(validatedIndexes.length<group.rawPrices.length){group.formulaStatus="partial";group.needsReview=true;group.conflict=true;group.warnings.push("部分显示总价与对应电费、服务费之和不一致。");}continue;}
+if(checkedCount===1){const componentSum=electricity[0]+service[0];group.total=group.rawPrices[0];group.totalIndex=0;setGroupPriceDetails(group,[0]);group.evidence="explicit-component-conflict";group.totalSource="explicit-component-conflict";group.formulaStatus="conflict";group.needsReview=true;group.conflict=true;group.warnings.push(`总价 ${formatPrice(group.total,group.totalPrecision)} 与电费、服务费之和 ${formatPrice(componentSum,groupDisplayPrecision(group))} 不一致。`);continue;}
+}
+const formula=findFormulaResolution(group.rawPrices);if(!formula)continue;group.total=formula.total;group.totalIndex=formula.index;setGroupPriceDetails(group,[formula.index]);group.evidence="formula";group.totalSource="formula";group.formulaStatus="passed";
+}
+for(const group of groups){
+if(group.prices.length)continue;
+if(group.rawPrices.length===1){const value=group.rawPrices[0];if(value>=0.25&&value<=3){group.total=value;group.totalIndex=0;setGroupPriceDetails(group,[0]);group.evidence="single";group.totalSource="single";group.needsReview=true;group.warnings.push("价格组只有一个数字，无法校验组成项");}continue;}
+const sameLabel=groups.filter(item=>normalizeLabel(item.label)===normalizeLabel(group.label)&&item.rawPrices.length===group.rawPrices.length);const sameShape=groups.filter(item=>item.rawPrices.length===group.rawPrices.length);let templateIndex=dominantTotalIndex(sameLabel,2,.67);if(templateIndex<0)templateIndex=dominantTotalIndex(sameShape,3,.75);
+if(templateIndex>=0&&templateIndex<group.rawPrices.length){const value=group.rawPrices[templateIndex];if(value>=0.25&&value<=3){group.total=value;group.totalIndex=templateIndex;setGroupPriceDetails(group,[templateIndex]);group.evidence="document-template";group.totalSource="document-template";group.needsReview=true;group.warnings.push("只能根据同一文本的数字位置推断总价。");if(group.rawPrices.length===3){const components=group.rawPrices.filter((_,index)=>index!==templateIndex);if(!formulaNearlyEqual(components[0]+components[1],value)){group.formulaStatus="conflict";group.conflict=true;group.warnings.push(`总价 ${formatPrice(value,group.totalPrecision)} 与组成项之和 ${formatPrice(components[0]+components[1],groupDisplayPrecision(group))} 不一致。`);}}}}
+}
 for(const group of groups){if(!group.prices.length&&group.rawPrices.length){group.needsReview=true;group.totalSource="unresolved";group.warnings.push("无法从价格组中确认唯一总价");}}
-return groups;}
+return groups;
+}
 function isUnlabeledGroup(group){return!group.label||group.label.includes("未标注");}
 function normalizeLabel(label){return String(label||"").replace(/\s+/g,"").trim();}const UNLABELED_TEMPLATE="__UNLABELED__";
 function previousTimeForGroup(timeItems,position){let result=null;for(const item of timeItems){if(item.index<position)result=item;else break;}return result;}
@@ -672,14 +747,14 @@ function scoreCompletedAssignment(state,timeItems,groups,documentProfile){let sc
 function findBestAssignmentPlan(candidates,groups,timeItems,documentProfile){const candidatesByGroup=new Map(groups.map(group=>[group.id,candidates.filter(candidate=>candidate.groupId===group.id)]));const timeOrder=new Map(timeItems.map((item,index)=>[item.index,index]));let states=[{choices:[],byTime:new Map(timeItems.map(item=>[item.index,[]])),score:0,lastTarget:-1}];for(const group of groups){const nextStates=[];for(const state of states){for(const candidate of candidatesByGroup.get(group.id)||[]){if(candidate.hardInvalid)continue;const targetOrder=candidate.targetTimeIndex===null?state.lastTarget:timeOrder.get(candidate.targetTimeIndex);if(candidate.targetTimeIndex!==null&&targetOrder<state.lastTarget)continue;const byTime=new Map([...state.byTime].map(([key,value])=>[key,[...value]]));let incremental=candidate.score;if(candidate.targetTimeIndex!==null){const assigned=byTime.get(candidate.targetTimeIndex);const label=group.normalizedLabel||normalizeLabel(group.label);if(assigned.some(item=>(item.group.normalizedLabel||normalizeLabel(item.group.label))===label))incremental-=7;const expectedCount=documentProfile.majorityGroupCount||0;if(expectedCount&&assigned.length<expectedCount)incremental+=2;else if(expectedCount&&assigned.length>=expectedCount)incremental-=4;assigned.push({group,candidate});}nextStates.push({choices:[...state.choices,candidate],byTime,score:state.score+incremental,lastTarget:candidate.targetTimeIndex===null?state.lastTarget:targetOrder});}}states=nextStates.sort((a,b)=>b.score-a.score).slice(0,512);if(!states.length)break;}const ranked=states.map(state=>({...state,finalScore:scoreCompletedAssignment(state,timeItems,groups,documentProfile)})).sort((a,b)=>b.finalScore-a.finalScore);const best=ranked[0]||{choices:[],byTime:new Map(timeItems.map(item=>[item.index,[]])),finalScore:0};const second=ranked.find(state=>state.choices.some((choice,index)=>choice.targetTimeIndex!==best.choices[index]?.targetTimeIndex));const ambiguous=Boolean(second&&best.finalScore-second.finalScore<=1);const warning="存在多个近似最优归属方案，请对照截图确认。";const affectedTimes=new Set();if(ambiguous){for(let index=0;index<best.choices.length;index++){if(best.choices[index]?.targetTimeIndex===second.choices[index]?.targetTimeIndex)continue;if(best.choices[index]?.targetTimeIndex!==null)affectedTimes.add(best.choices[index].targetTimeIndex);if(second.choices[index]?.targetTimeIndex!==null)affectedTimes.add(second.choices[index].targetTimeIndex);}}const byTimeIndex=new Map(timeItems.map(item=>[item.index,[]]));for(const[timeIndex,items]of best.byTime){for(const item of items){const alternatives=(candidatesByGroup.get(item.group.id)||[]).filter(candidate=>candidate.targetTimeIndex!==null&&!candidate.hardInvalid).sort((a,b)=>b.score-a.score);const locallyAmbiguous=alternatives.length>1&&Math.abs(alternatives[0].score-alternatives[1].score)<=.25;const needsAmbiguousReview=ambiguous&&affectedTimes.has(timeIndex);const assignmentWarnings=[];if(locallyAmbiguous)assignmentWarnings.push("该价格组位于两个时段之间，存在多个可能归属。");if(needsAmbiguousReview)assignmentWarnings.push(warning);byTimeIndex.get(timeIndex).push({...item.group,source:item.candidate.relation==="before-time"?"前置价格组":"后置价格组",assignmentScore:item.candidate.score,assignmentAmbiguous:locallyAmbiguous||needsAmbiguousReview,needsReview:item.group.needsReview||locallyAmbiguous||needsAmbiguousReview,warnings:[...new Set([...item.group.warnings,...assignmentWarnings])]});}}return{byTimeIndex,planScore:best.finalScore,ambiguous,warnings:ambiguous?[warning]:[]};}
 function assignGroupsToSections(timeItems,groups){const documentProfile=buildDocumentProfile(timeItems,groups);const candidates=buildAssignmentCandidates(groups,timeItems,documentProfile);const plan=findBestAssignmentPlan(candidates,groups,timeItems,documentProfile);plan.byTimeIndex.planScore=plan.planScore;plan.byTimeIndex.ambiguous=plan.ambiguous;plan.byTimeIndex.warnings=plan.warnings;plan.byTimeIndex.documentProfile=documentProfile;return plan.byTimeIndex;}
 function buildSectionReviewMeta(groups,documentProfile){const actualGroupCount=groups.length;const majorityGroupCount=documentProfile.majorityGroupCount||0;const warnings=[];if(documentProfile.confidence>=.5&&majorityGroupCount&&actualGroupCount!==majorityGroupCount)warnings.push(`当前时段识别到 ${actualGroupCount} 个价格组，多数时段为 ${majorityGroupCount} 个。`);const actualLabels=new Set(groups.map(group=>group.normalizedLabel||normalizeLabel(group.label)));const expectedLabels=(documentProfile.majorityLabelSequence||[]).filter(label=>label&&label!==UNLABELED_TEMPLATE&&!label.includes("未标注"));const missingLabels=[...new Set(expectedLabels.filter(label=>!actualLabels.has(label)))];if(documentProfile.confidence>=.5&&missingLabels.length)warnings.push(`当前时段缺少多数结构中的 ${missingLabels.join("、")}。`);return{needsReview:warnings.length>0,warnings,actualGroupCount,majorityGroupCount,missingLabels};}
-function uniqueSorted(prices){return[...new Set(prices.map(price=>Number(price).toFixed(4)))].map(Number).sort((a,b)=>a-b);}
-function parseSections(text){const lines=parseLines(text);const timeItems=extractTimeItems(lines);const groups=resolvePriceGroupTotals(enrichPriceGroupsWithTimeContext(extractPriceGroups(lines),timeItems));const documentProfile=buildDocumentProfile(timeItems,groups);const groupsByTime=assignGroupsToSections(timeItems,groups);const sections=timeItems.map((timeItem,pos)=>{const nextTimeIndex=pos<timeItems.length-1?timeItems[pos+1].index:lines.length;const sectionGroups=groupsByTime.get(timeItem.index)||[];return{...timeItem,prices:uniqueSorted(sectionGroups.flatMap(group=>group.prices)),groups:sectionGroups,raw:lines.slice(timeItem.index,nextTimeIndex)};});const merged=new Map();for(const section of sections){const key=`${section.start}-${section.end}`;if(!merged.has(key))merged.set(key,{...section,duplicates:1});else{const current=merged.get(key);current.duplicates+=1;current.prices=uniqueSorted([...current.prices,...section.prices]);current.groups.push(...section.groups);}}const result=[...merged.values()];for(const section of result)section.meta=buildSectionReviewMeta(section.groups,documentProfile);result.documentProfile=documentProfile;return result;}
+function uniqueSorted(prices){const sorted=prices.map(Number).filter(Number.isFinite).sort((a,b)=>a-b);const unique=[];for(const price of sorted){if(!unique.length||!pricesEqual(unique[unique.length-1],price))unique.push(price);}return unique;}
+function parseSections(text){const lines=parseLines(text);const timeItems=extractTimeItems(lines);const groups=resolvePriceGroupTotals(enrichPriceGroupsWithTimeContext(extractPriceGroups(lines),timeItems));const documentProfile=buildDocumentProfile(timeItems,groups);const groupsByTime=assignGroupsToSections(timeItems,groups);const sections=timeItems.map((timeItem,pos)=>{const nextTimeIndex=pos<timeItems.length-1?timeItems[pos+1].index:lines.length;const sectionGroups=groupsByTime.get(timeItem.index)||[];const priceDetails=uniquePriceDetails(sectionGroups.flatMap(group=>group.priceDetails||[]));return{...timeItem,priceDetails,prices:priceDetails.map(detail=>detail.value),groups:sectionGroups,raw:lines.slice(timeItem.index,nextTimeIndex)};});const merged=new Map();for(const section of sections){const key=`${section.start}-${section.end}`;if(!merged.has(key))merged.set(key,{...section,duplicates:1});else{const current=merged.get(key);current.duplicates+=1;current.priceDetails=uniquePriceDetails([...current.priceDetails,...section.priceDetails]);current.prices=current.priceDetails.map(detail=>detail.value);current.groups.push(...section.groups);}}const result=[...merged.values()];for(const section of result)section.meta=buildSectionReviewMeta(section.groups,documentProfile);result.documentProfile=documentProfile;return result;}
 function priceLabelRole(label){const text=normalizeLabel(label);if(/非会员/.test(text))return{role:"nonMember",strength:"explicit"};if(/VIP|会员|黑钻|专享/.test(text))return{role:"member",strength:"explicit"};if(/挂牌价|原价|标准价/.test(text))return{role:"nonMember",strength:"experience"};return{role:"unknown",strength:"none"};}
-function findLabelPriceConflict(groups){const members=groups.filter(group=>group.total!==null&&priceLabelRole(group.label).role==="member");const nonMembers=groups.filter(group=>group.total!==null&&priceLabelRole(group.label).role==="nonMember");for(const memberGroup of members){for(const nonMemberGroup of nonMembers){if(memberGroup.total>nonMemberGroup.total&&!nearlyEqual(memberGroup.total,nonMemberGroup.total))return`${memberGroup.label}高于${nonMemberGroup.label}，名称含义与会员价高低规则冲突。`;}}return"";}
-function sectionPricePair(section){const prices=uniqueSorted(section.prices);if(!prices.length)return null;const member=prices[0];const nonMember=Math.max(member,prices.length===1?member:prices[1]);return{section,prices,member,nonMember};}
+function findLabelPriceConflict(groups){const members=groups.filter(group=>group.total!==null&&priceLabelRole(group.label).role==="member");const nonMembers=groups.filter(group=>group.total!==null&&priceLabelRole(group.label).role==="nonMember");for(const memberGroup of members){for(const nonMemberGroup of nonMembers){if(memberGroup.total>nonMemberGroup.total&&!pricesEqual(memberGroup.total,nonMemberGroup.total))return`${memberGroup.label}高于${nonMemberGroup.label}，名称含义与会员价高低规则冲突。`;}}return"";}
+function sectionPricePair(section){const priceDetails=uniquePriceDetails(section.priceDetails?.length?section.priceDetails:section.prices.map(value=>({value,decimalPlaces:MIN_PRICE_DECIMALS})));if(!priceDetails.length)return null;const memberDetail=priceDetails[0];const nonMemberDetail=priceDetails.length===1?memberDetail:priceDetails[1];return{section,priceDetails,prices:priceDetails.map(detail=>detail.value),member:memberDetail.value,nonMember:nonMemberDetail.value,memberPrecision:memberDetail.decimalPlaces,nonMemberPrecision:nonMemberDetail.decimalPlaces};}
 function joinReviewNotes(notes){const unique=[...new Set(notes.map(note=>String(note||"").trim()).filter(Boolean))];if(!unique.length)return"";return`${unique.map(note=>note.replace(/[。；]+$/g,"")).join("；")}。`;}
 function appendSectionReviewNotes(section,notes){let needsReview=false;const groups=section.groups||[];const unresolvedGroups=groups.filter(group=>group.rawPrices?.length&&!group.prices?.length);const reviewGroups=groups.filter(group=>group.needsReview||group.conflict);for(const group of reviewGroups){needsReview=true;for(const warning of group.warnings)notes.push(`${group.label}：${warning}`);}if(unresolvedGroups.length){needsReview=true;notes.push(`${unresolvedGroups.map(group=>group.label).join("、")}：OCR 缺少关键数字，无法确认唯一总价。`);}if(section.meta?.needsReview){needsReview=true;notes.push(...section.meta.warnings);}const labelConflict=findLabelPriceConflict(groups);if(labelConflict){needsReview=true;notes.push(labelConflict);}return needsReview;}
-function chooseForTarget(sections,target){const start=toMin(target.start);const end=toMin(target.end);const matched=sections.filter(section=>section.end>start&&section.start<end);const available=matched.map(sectionPricePair).filter(Boolean);if(!available.length)return{member:"",nonMember:"",matched,available,status:"missing",note:"未识别到可信总价，电费和服务费不会作为总价兜底"};const ranked=[...available].sort((a,b)=>a.member-b.member||a.nonMember-b.nonMember);const best=ranked[0];const member=best.member;const nonMember=best.nonMember;const notes=[];let needsReview=false;for(const item of available)if(appendSectionReviewNotes(item.section,notes))needsReview=true;if(best.prices.length===1){needsReview=true;notes.push("只有一个可信总价，会员价和非会员价暂按同价处理。");}if(matched.length>1){needsReview=true;const pairSignatures=new Set(available.map(item=>`${item.member.toFixed(4)}/${item.nonMember.toFixed(4)}`));if(pairSignatures.size>1)notes.push("一个系统时段匹配多个截图时段，且价格不一致，请人工确认。");else notes.push("一个系统时段匹配多个截图时段，价格一致，请核对。");notes.push(`已采用 ${best.section.label} 的最低会员价及对应非会员价。`);}if(!needsReview)notes.push("总价公式成立，结构与归属正常，已按价格从低到高确定会员价和非会员价。");return{member,nonMember,matched,available,best,status:needsReview?"review":"ok",note:joinReviewNotes(notes)};}
+function chooseForTarget(sections,target){const start=toMin(target.start);const end=toMin(target.end);const matched=sections.filter(section=>section.end>start&&section.start<end);const available=matched.map(sectionPricePair).filter(Boolean);if(!available.length)return{member:"",nonMember:"",memberPrecision:MIN_PRICE_DECIMALS,nonMemberPrecision:MIN_PRICE_DECIMALS,matched,available,status:"missing",note:"未识别到可信总价，电费和服务费不会作为总价兜底"};const ranked=[...available].sort((a,b)=>a.member-b.member||a.nonMember-b.nonMember);const best=ranked[0];const member=best.member;const nonMember=best.nonMember;const notes=[];let needsReview=false;for(const item of available)if(appendSectionReviewNotes(item.section,notes))needsReview=true;if(best.prices.length===1){needsReview=true;notes.push("只有一个可信总价，会员价和非会员价暂按同价处理。");}if(matched.length>1){needsReview=true;const reference=available[0];const hasDifferentPairs=available.some(item=>!pricesEqual(item.member,reference.member)||!pricesEqual(item.nonMember,reference.nonMember));if(hasDifferentPairs)notes.push("一个系统时段匹配多个截图时段，且价格不一致，请人工确认。");else notes.push("一个系统时段匹配多个截图时段，价格一致，请核对。");notes.push(`已采用 ${best.section.label} 的最低会员价及对应非会员价。`);}if(!needsReview)notes.push("总价公式成立，结构与归属正常，已按价格从低到高确定会员价和非会员价。");return{member,nonMember,memberPrecision:best.memberPrecision,nonMemberPrecision:best.nonMemberPrecision,matched,available,best,status:needsReview?"review":"ok",note:joinReviewNotes(notes)};}
 function regressionPeriodId(period) {
   return `${period.start}-${period.end}`;
 }
@@ -688,15 +763,13 @@ function getRegressionConfig(sample) {
   if (table) return { periods: table.periods.map(period => ({ ...period })) };
   return REGION_CONFIGS[sample.region] || null;
 }
-function formatRegressionPrice(value, expected = "") {
-  if (value === "" || value === null || value === undefined) return "";
-  const decimalPlaces = String(expected).includes(".") ? String(expected).split(".")[1].length : 4;
-  return Number(value).toFixed(decimalPlaces);
+function formatRegressionPrice(value, decimalPlaces = MIN_PRICE_DECIMALS) {
+  return formatPrice(value, decimalPlaces);
 }
-function regressionPriceMatches(expected, actual) {
+function regressionPriceMatches(expected, actual, actualPrecision) {
   if (expected === "") return actual === "";
   if (actual === "" || !Number.isFinite(Number(actual))) return false;
-  return Math.abs(Number(expected) - Number(actual)) <= 0.0000005;
+  return Math.abs(Number(expected) - Number(actual)) <= 0.0000005 && formatRegressionPrice(actual, actualPrecision) === expected;
 }
 function compareRegressionRow(expected, actual) {
   const differences = [];
@@ -704,11 +777,11 @@ function compareRegressionRow(expected, actual) {
     differences.push({ field: "时段", expected: expected.period, actual: "未生成", reason: "整理结果中没有生成该目标时段。" });
     return differences;
   }
-  if (!regressionPriceMatches(expected.member, actual.member)) {
-    differences.push({ field: "会员价", expected: expected.member || "空", actual: formatRegressionPrice(actual.member, expected.member) || "空", reason: actual.note || "会员价与业务预期不一致。" });
+  if (!regressionPriceMatches(expected.member, actual.member, actual.memberPrecision)) {
+    differences.push({ field: "会员价", expected: expected.member || "空", actual: formatRegressionPrice(actual.member, actual.memberPrecision) || "空", reason: actual.note || "会员价与业务预期不一致。" });
   }
-  if (!regressionPriceMatches(expected.nonMember, actual.nonMember)) {
-    differences.push({ field: "非会员价", expected: expected.nonMember || "空", actual: formatRegressionPrice(actual.nonMember, expected.nonMember) || "空", reason: actual.note || "非会员价与业务预期不一致。" });
+  if (!regressionPriceMatches(expected.nonMember, actual.nonMember, actual.nonMemberPrecision)) {
+    differences.push({ field: "非会员价", expected: expected.nonMember || "空", actual: formatRegressionPrice(actual.nonMember, actual.nonMemberPrecision) || "空", reason: actual.note || "非会员价与业务预期不一致。" });
   }
   if (expected.status !== actual.status) {
     differences.push({ field: "状态", expected: expected.status, actual: actual.status, reason: actual.note || "状态与业务预期不一致。" });
@@ -736,7 +809,7 @@ function runRegressionSample(sample) {
     passed: differences.length === 0,
     differences,
     expectedRows: sample.expectedRows,
-    actualRows: actualRows.map(row => ({ period: row.period, member: row.member, nonMember: row.nonMember, status: row.status, note: row.note })),
+    actualRows: actualRows.map(row => ({ period: row.period, member: row.member, memberPrecision: row.memberPrecision, nonMember: row.nonMember, nonMemberPrecision: row.nonMemberPrecision, status: row.status, note: row.note })),
     sectionCount: sections.length
   };
 }
@@ -780,6 +853,17 @@ if (row.member === "" || row.nonMember === "") return "missing";
 if (row.edited) return "ok";
 return row.status;
 }
+function rowPricePrecision(row, kind) {
+const stored = row[`${kind}Precision`];
+return stored ?? rawDecimalPlaces(row[kind]);
+}
+function formatRowPrice(row, kind) {
+return row[kind] === "" ? "" : formatPrice(row[kind], rowPricePrecision(row, kind));
+}
+function updateRowPrice(row, kind, rawValue) {
+row[kind] = rawValue;
+row[`${kind}Precision`] = rawDecimalPlaces(rawValue);
+}
 function getIssueReason(row) {
 const displayStatus = rowDisplayStatus(row);
 if (displayStatus === "review") return row.note || "当前价格需要对照原始文本确认。";
@@ -795,9 +879,9 @@ const progress = total ? recognized / total * 360 : 0;
 const recognitionCards = document.getElementById("recognitionCards");
 recognitionCards.style.setProperty("--period-count", Math.max(total, 1));
 recognitionCards.innerHTML = resultRows.map(row => {
-const mainPrice = row.member !== "" ? Number(row.member).toFixed(4) : (row.nonMember !== "" ? Number(row.nonMember).toFixed(4) : "待补");
-const member = row.member !== "" ? Number(row.member).toFixed(4) : "待补";
-const nonMember = row.nonMember !== "" ? Number(row.nonMember).toFixed(4) : "待补";
+const mainPrice = row.member !== "" ? formatRowPrice(row, "member") : (row.nonMember !== "" ? formatRowPrice(row, "nonMember") : "待补");
+const member = row.member !== "" ? formatRowPrice(row, "member") : "待补";
+const nonMember = row.nonMember !== "" ? formatRowPrice(row, "nonMember") : "待补";
 return `<article class="recognition-card"><div class="recognition-card-top"><span class="period-glyph tone-${row.period.tone}">${svgIcon(periodIconName(row.period), "icon icon-sm")}</span><strong>${escapeHtml(row.period.name)}</strong></div><div class="range">${row.period.start}—${row.period.end}</div><div class="card-price">${escapeHtml(mainPrice)}<small>元/度</small></div><div class="card-dual">会员 ${member} · 非会员 ${nonMember}</div></article>`;
 }).join("");
 document.getElementById("statusRing").style.setProperty("--progress", `${progress}deg`);
@@ -875,13 +959,13 @@ const displayStatus = rowDisplayStatus(row);
 const isProblem = displayStatus !== "ok";
 const statusLabel = displayStatus === "missing" ? "缺失" : "需核对";
 const issueIcon = displayStatus === "missing" ? "alert-circle" : "peak";
-return `<div class="core-price-row ${isProblem ? `core-issue core-issue-${displayStatus}` : ""}" data-row-index="${row.index}"><div class="core-period"><strong>${escapeHtml(row.period.name)}<span>（${row.period.start}—${row.period.end}）</span></strong>${isProblem ? `<span class="core-status ${displayStatus}">${svgIcon(issueIcon, "icon icon-sm")}${statusLabel}</span>` : ""}</div><label><span>非会员价</span><input class="core-price-input ${row.nonMember === "" ? "field-missing" : ""}" data-kind="nonMember" inputmode="decimal" value="${row.nonMember !== "" ? Number(row.nonMember).toFixed(4) : ""}" placeholder="${row.nonMember === "" ? "缺失" : "待核对"}"></label><label><span>会员价</span><input class="core-price-input ${row.member === "" ? "field-missing" : ""}" data-kind="member" inputmode="decimal" value="${row.member !== "" ? Number(row.member).toFixed(4) : ""}" placeholder="${row.member === "" ? "缺失" : "待核对"}"></label>${isProblem ? `<div class="core-price-issue ${displayStatus}">${svgIcon(issueIcon, "icon icon-sm")}<span>${escapeHtml(getIssueReason(row))}</span></div>` : ""}</div>`;
+return `<div class="core-price-row ${isProblem ? `core-issue core-issue-${displayStatus}` : ""}" data-row-index="${row.index}"><div class="core-period"><strong>${escapeHtml(row.period.name)}<span>（${row.period.start}—${row.period.end}）</span></strong>${isProblem ? `<span class="core-status ${displayStatus}">${svgIcon(issueIcon, "icon icon-sm")}${statusLabel}</span>` : ""}</div><label><span>非会员价</span><input class="core-price-input ${row.nonMember === "" ? "field-missing" : ""}" data-kind="nonMember" inputmode="decimal" value="${formatRowPrice(row,"nonMember")}" placeholder="${row.nonMember === "" ? "缺失" : "待核对"}"></label><label><span>会员价</span><input class="core-price-input ${row.member === "" ? "field-missing" : ""}" data-kind="member" inputmode="decimal" value="${formatRowPrice(row,"member")}" placeholder="${row.member === "" ? "缺失" : "待核对"}"></label>${isProblem ? `<div class="core-price-issue ${displayStatus}">${svgIcon(issueIcon, "icon icon-sm")}<span>${escapeHtml(getIssueReason(row))}</span></div>` : ""}</div>`;
 }).join("") : `<div class="core-price-empty">当前没有选择复制时段，请在上方“复制设置”中选择常用时段。</div>`;
 grid.querySelectorAll(".core-price-row").forEach(element => {
 const row = resultRows[Number(element.dataset.rowIndex)];
 element.querySelectorAll(".core-price-input").forEach(input => {
 input.addEventListener("input", event => {
-row[event.target.dataset.kind] = event.target.value.trim();
+updateRowPrice(row, event.target.dataset.kind, event.target.value.trim());
 row.edited = true;
 updateCopyPreview();
 renderDashboardSummary();
@@ -899,7 +983,7 @@ if (problemMode && !problemRows.length) problemMode = false;
 const visibleRows = problemMode ? problemRows : (state.showCommonOnly ? resultRows.filter(row => row.selected) : resultRows);
 resultBody.innerHTML = visibleRows.map(row => {
 const matched = row.matched.length ? row.matched.map(item => item.label).join("、") : "—";
-const candidates = row.available.length ? uniqueSorted(row.available.flatMap(item => item.prices)).map(v => v.toFixed(4)).join("/") : "—";
+const candidates = row.available.length ? uniquePriceDetails(row.available.flatMap(item => item.priceDetails||[])).map(detail => formatPrice(detail.value,detail.decimalPlaces)).join("/") : "—";
 const displayStatus = rowDisplayStatus(row);
 const isProblem = hasAnalysed && displayStatus !== "ok";
 const statusClass = row.edited && !isProblem ? "manual" : displayStatus;
@@ -910,8 +994,8 @@ return `<tr data-row-index="${row.index}" data-period-id="${escapeHtml(periodId(
 <td class="period-cell"><strong><span class="period-glyph tone-${row.period.tone}">${svgIcon(periodIconName(row.period), "icon icon-sm")}</span>${escapeHtml(row.period.name)}</strong><span>${row.period.start}—${row.period.end}</span></td>
 <td class="source-cell mono">${row.period.start}—${row.period.end}</td>
 <td class="source-cell mono" title="${escapeHtml(matched)}｜${escapeHtml(candidates)}">${escapeHtml(candidates)}</td>
-<td><input class="price-input" data-kind="nonMember" inputmode="decimal" value="${row.nonMember!==""?Number(row.nonMember).toFixed(4):""}" aria-label="${escapeHtml(row.period.name)}非会员价"></td>
-<td><input class="price-input" data-kind="member" inputmode="decimal" value="${row.member!==""?Number(row.member).toFixed(4):""}" aria-label="${escapeHtml(row.period.name)}会员价"></td>
+<td><input class="price-input" data-kind="nonMember" inputmode="decimal" value="${formatRowPrice(row,"nonMember")}" aria-label="${escapeHtml(row.period.name)}非会员价"></td>
+<td><input class="price-input" data-kind="member" inputmode="decimal" value="${formatRowPrice(row,"member")}" aria-label="${escapeHtml(row.period.name)}会员价"></td>
 <td><span class="status ${statusClass}" title="${escapeHtml(row.note)}">${statusText}</span>${isProblem?`<span class="issue-reason">${escapeHtml(reason)}</span>`:""}</td>
 </tr>`;
 }).join("");
@@ -941,7 +1025,7 @@ persistRegionState();
 renderResults();
 });
 tr.querySelectorAll(".price-input").forEach(input => input.addEventListener("input", event => {
-row[event.target.dataset.kind] = event.target.value.trim();
+updateRowPrice(row, event.target.dataset.kind, event.target.value.trim());
 row.edited = true;
 tr.classList.add("edited");
 const chip = tr.querySelector(".status");
@@ -975,11 +1059,12 @@ const groups = section.groups || [];
 const groupMarkup = groups.length ? groups.map(group => {
 const rawPrices = group.rawPrices || [];
 const pricesMarkup = rawPrices.length ? rawPrices.map((price, index) => {
-const isTotal = group.totalIndex >= 0 ? group.totalIndex === index : (group.total !== null && nearlyEqual(price, group.total));
-return `<span class="source-price ${isTotal ? "source-price-total" : ""}">${Number(price).toFixed(4)}${isTotal ? "<small>采用</small>" : ""}</span>`;
+const isTotal = group.totalIndex >= 0 ? group.totalIndex === index : (group.total !== null && pricesEqual(price, group.total));
+const precision = group.rawPriceTokens?.[index]?.decimalPlaces ?? group.totalPrecision;
+return `<span class="source-price ${isTotal ? "source-price-total" : ""}">${formatPrice(price,precision)}${isTotal ? "<small>采用</small>" : ""}</span>`;
 }).join("") : `<span class="source-price source-price-missing">未识别到数字</span>`;
 const warning = group.warnings?.length ? `<p class="source-group-warning">${escapeHtml(group.warnings.join("；"))}</p>` : "";
-return `<div class="source-price-group"><div class="source-group-head"><strong>${escapeHtml(group.label || "未标注价格组")}</strong>${group.total !== null ? `<span>识别总价 ${Number(group.total).toFixed(4)}</span>` : `<span class="source-unresolved">总价待核对</span>`}</div><div class="source-price-values">${pricesMarkup}</div>${warning}</div>`;
+return `<div class="source-price-group"><div class="source-group-head"><strong>${escapeHtml(group.label || "未标注价格组")}</strong>${group.total !== null ? `<span>识别总价 ${formatPrice(group.total,group.totalPrecision)}</span>` : `<span class="source-unresolved">总价待核对</span>`}</div><div class="source-price-values">${pricesMarkup}</div>${warning}</div>`;
 }).join("") : `<div class="source-price-group source-group-empty">该时段未识别到价格组。</div>`;
 return `<article class="source-period-card"><header><span class="source-period-index">${sectionIndex + 1}</span><strong>${escapeHtml(section.label || "原始时段")}</strong><small>${groups.length} 个价格组</small></header>${groupMarkup}</article>`;
 }).join("")}</div>`;
@@ -1080,8 +1165,8 @@ const orderedIds = [...state.order.filter(id => selectedIds.includes(id)), ...se
 return orderedIds.map(id => resultRows.find(row => periodId(row.period) === id)).filter(Boolean);
 }
 function priceItems(row, priceOrder = getRegionSelection().priceOrder) {
-const member = { label: `${row.period.name}会员价`, value: row.member };
-const nonMember = { label: `${row.period.name}非会员价`, value: row.nonMember };
+const member = { kind: "member", label: `${row.period.name}会员价`, value: row.member };
+const nonMember = { kind: "nonMember", label: `${row.period.name}非会员价`, value: row.nonMember };
 return priceOrder === "member-first" ? [member, nonMember] : [nonMember, member];
 }
 function previewData(rows, priceOrder) {
@@ -1093,7 +1178,7 @@ status: rowDisplayStatus(row),
 reason: getIssueReason(row),
 items: priceItems(row, priceOrder).map(item => ({
 label: item.label.replace(row.period.name, ""),
-value: item.value === "" ? "" : Number(item.value).toFixed(4)
+value: item.value === "" ? "" : formatRowPrice(row, item.kind)
 }))
 }));
 const items = groups.flatMap(group => group.items);
@@ -1148,7 +1233,7 @@ document.querySelectorAll("#priceOrderOptions button").forEach(button => button.
 const rows = copyDraft.order.map(id => resultRows.find(row => periodId(row.period) === id)).filter(row => row?.selected);
 document.getElementById("copyOrderList").innerHTML = rows.length ? rows.map(row => {
 const id = periodId(row.period);
-return `<div class="copy-order-item"><div><strong>${escapeHtml(row.period.name)}　${row.period.start}—${row.period.end}</strong><small>会员 ${row.member === "" ? "待补" : Number(row.member).toFixed(4)}　非会员 ${row.nonMember === "" ? "待补" : Number(row.nonMember).toFixed(4)}</small></div><div class="copy-order-arrows"><button type="button" data-copy-move="-1" data-period-id="${escapeHtml(id)}" aria-label="向前移动">↑</button><button type="button" data-copy-move="1" data-period-id="${escapeHtml(id)}" aria-label="向后移动">↓</button></div></div>`;
+return `<div class="copy-order-item"><div><strong>${escapeHtml(row.period.name)}　${row.period.start}—${row.period.end}</strong><small>会员 ${row.member === "" ? "待补" : formatRowPrice(row,"member")}　非会员 ${row.nonMember === "" ? "待补" : formatRowPrice(row,"nonMember")}</small></div><div class="copy-order-arrows"><button type="button" data-copy-move="-1" data-period-id="${escapeHtml(id)}" aria-label="向前移动">↑</button><button type="button" data-copy-move="1" data-period-id="${escapeHtml(id)}" aria-label="向后移动">↓</button></div></div>`;
 }).join("") : `<div class="notice warn">请先设置至少一个常用时段。</div>`;
 const draftData = hasAnalysed ? previewData(rows, copyDraft.priceOrder) : { labels: [], values: [] };
 renderPreviewElements(document.getElementById("copyDraftLabels"), document.getElementById("copyDraftPreview"), draftData, hasAnalysed ? "未选择任何时段" : "整理完成后，这里会显示可复制内容。");
@@ -1371,8 +1456,8 @@ const header = ["时段", "时段范围", "会员价", "非会员价", "状态"]
 const body = rows.map(row => [
 row.period.name,
 `${row.period.start}-${row.period.end}`,
-row.member === "" ? "" : Number(row.member).toFixed(4),
-row.nonMember === "" ? "" : Number(row.nonMember).toFixed(4),
+formatRowPrice(row, "member"),
+formatRowPrice(row, "nonMember"),
 row.edited ? "人工修改" : ({ ok: "已识别", review: "需核对", missing: "缺失" }[row.status] || "待处理")
 ]);
 const csv = [header, ...body].map(line => line.map(value => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\r\n");
