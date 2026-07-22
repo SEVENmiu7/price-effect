@@ -528,6 +528,29 @@ const REGRESSION_SAMPLES = {
     region: "changsha",
     month: "2026-06",
     input: `00:00-06:00
+会员价0.7000
+服务费0.3000
+优惠金额0.1000
+电费0.5000
+非会员价0.8000
+优惠金额0.1000
+电费0.6000
+服务费0.3000`,
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.7000", "0.8000", "ok"),
+      missingRegressionRow("06:00-12:00"),
+      missingRegressionRow("12:00-14:00"),
+      missingRegressionRow("14:00-16:00"),
+      missingRegressionRow("16:00-24:00")
+    ]
+  },
+  "general-adjusted-formula-ambiguous": {
+    id: "general-adjusted-formula-ambiguous",
+    name: "通用规则：无标签四数字保持缺失",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: `00:00-06:00
 会员价
 0.5000
 0.7000
@@ -539,7 +562,7 @@ const REGRESSION_SAMPLES = {
 0.3000
 0.1000`,
     expectedRows: [
-      regressionRow("00:00-06:00", "0.7000", "0.8000", "ok"),
+      missingRegressionRow("00:00-06:00"),
       missingRegressionRow("06:00-12:00"),
       missingRegressionRow("12:00-14:00"),
       missingRegressionRow("14:00-16:00"),
@@ -841,8 +864,8 @@ function formatPrice(value, decimalPlaces = MIN_PRICE_DECIMALS) {
   if (value === "" || value === null || value === undefined || !Number.isFinite(Number(value))) return "";
   return Number(value).toFixed(normalizePricePrecision(decimalPlaces));
 }
-function getPriceTokens(line,minValue=0.1){if(normTime(line))return[];return[...String(line).matchAll(/(?<![-－])\b\d+(?:\.\d{1,6})\b/g)].map(match=>({value:Number(match[0]),raw:match[0],decimalPlaces:rawDecimalPlaces(match[0])})).filter(token=>token.value>=minValue&&token.value<=3);}
-function getPositiveNumbers(line,minValue=0.1){return getPriceTokens(line,minValue).map(token=>token.value);}
+function getPriceTokens(line,minValue=0.000001){if(normTime(line))return[];return[...String(line).matchAll(/(?<![-－])\b\d+(?:\.\d{1,6})\b/g)].map(match=>({value:Number(match[0]),raw:match[0],decimalPlaces:rawDecimalPlaces(match[0])})).filter(token=>token.value>=minValue&&token.value<=3);}
+function getPositiveNumbers(line,minValue=0.000001){return getPriceTokens(line,minValue).map(token=>token.value);}
 function isNumericOnlyLine(line){const normalized=String(line).replace(/[元度\s/]/g,"");return/^\d+(?:\.\d{1,6})$/.test(normalized);}
 function isIgnoreLabel(line){return/电费|服务费|优惠金额|最高优惠|立减|已减|已降|补贴|省\d|当前时间|更新时间/.test(line);}
 function isPriceLabel(line){if(isIgnoreLabel(line)||normTime(line))return false;return/会员|VIP|黑钻|优惠价|挂牌价|电站价|站点价|快电价|闪联价|华自价|YKC价|原价|折扣价|专享|活动价|充电单价|充电总价|合计|应付金额|当前价|收费金额/.test(line);}
@@ -851,8 +874,32 @@ function formulaNearlyEqual(a,b){return Math.abs(a-b)<=FORMULA_TOLERANCE;}
 function formulaTotal(window){if(window.length===3){if(formulaNearlyEqual(window[0]+window[1],window[2]))return{total:window[2],index:2,kind:"sum"};if(formulaNearlyEqual(window[1]+window[2],window[0]))return{total:window[0],index:0,kind:"sum"};if(formulaNearlyEqual(window[0]+window[2],window[1]))return{total:window[1],index:1,kind:"sum"};}if(window.length===4){if(formulaNearlyEqual(window[0]+window[1]-window[2],window[3]))return{total:window[3],index:3,kind:"adjusted"};if(formulaNearlyEqual(window[1]+window[2]-window[3],window[0]))return{total:window[0],index:0,kind:"adjusted"};}return null;}
 function findFormulaResolution(prices){const matches=[];for(let size of[4,3]){for(let start=0;start+size<=prices.length;start++){const relation=formulaTotal(prices.slice(start,start+size));if(relation&&relation.total>=0.25&&relation.total<=3)matches.push({...relation,index:start+relation.index});}}const totals=uniqueSorted(matches.map(item=>item.total));if(totals.length!==1)return null;const match=matches.find(item=>pricesEqual(item.total,totals[0]));return{...match,total:totals[0]};}
 function collectGroupNumbers(lines,startIndex){const tokens=[];let endIndex=startIndex-1;for(let i=startIndex;i<lines.length;i++){if(normTime(lines[i])||isPriceLabel(lines[i])||isIgnoreLabel(lines[i]))break;const lineTokens=getPriceTokens(lines[i]);if(lineTokens.length)tokens.push(...lineTokens);endIndex=i;}return{endIndex,prices:tokens.map(token=>token.value),tokens};}
-function collectExplicitComponents(lines,startIndex){const result={electricity:[],service:[]};let kind="";for(let i=startIndex;i<lines.length;i++){if(normTime(lines[i])||isPriceLabel(lines[i]))break;if(/电费/.test(lines[i]))kind="electricity";else if(/服务费/.test(lines[i]))kind="service";const numbers=getPositiveNumbers(lines[i]);if(kind&&numbers.length)result[kind].push(...numbers);else if(isIgnoreLabel(lines[i])&&!/电费|服务费/.test(lines[i]))kind="";}return result;}
-function createPriceGroup(label,start,end,rawPrices,componentEvidence={electricity:[],service:[]},rawPriceTokens=[]){return{label,start,end,rawPrices:[...rawPrices],rawPriceTokens:rawPriceTokens.length?[...rawPriceTokens]:rawPrices.map(value=>({value,raw:String(value),decimalPlaces:rawDecimalPlaces(value)})),componentEvidence,prices:[],priceDetails:[],total:null,totalIndex:-1,totalPrecision:MIN_PRICE_DECIMALS,evidence:"unresolved",needsReview:false,conflict:false,warnings:[],formulaStatus:"unknown",totalSource:"unresolved",rawPriceCount:rawPrices.length};}
+function collectExplicitComponents(lines,startIndex){
+  const result={electricity:[],service:[],adjustment:[]};
+  const adjustmentPattern=/优惠金额|最高优惠|立减|已减|已降|补贴/;
+  let kind="";
+  for(let i=startIndex;i<lines.length;i++){
+    const line=lines[i];
+    if(normTime(line)||isPriceLabel(line))break;
+    if(/电费/.test(line))kind="electricity";
+    else if(/服务费/.test(line))kind="service";
+    const adjustmentMatch=line.match(adjustmentPattern);
+    if(adjustmentMatch){
+      const adjustmentIndex=adjustmentMatch.index||0;
+      const precedingTokens=getPriceTokens(line.slice(0,adjustmentIndex));
+      if(kind&&kind!=="adjustment"&&precedingTokens.length)result[kind].push(...precedingTokens.map(token=>token.value));
+      kind="adjustment";
+      const adjustmentTokens=getPriceTokens(line.slice(adjustmentIndex));
+      if(adjustmentTokens.length)result.adjustment.push(...adjustmentTokens.map(token=>token.value));
+      continue;
+    }
+    const numbers=getPositiveNumbers(line);
+    if(kind&&numbers.length)result[kind].push(...numbers);
+    else if(isIgnoreLabel(line)&&!/电费|服务费/.test(line))kind="";
+  }
+  return result;
+}
+function createPriceGroup(label,start,end,rawPrices,componentEvidence={electricity:[],service:[],adjustment:[]},rawPriceTokens=[]){return{label,start,end,rawPrices:[...rawPrices],rawPriceTokens:rawPriceTokens.length?[...rawPriceTokens]:rawPrices.map(value=>({value,raw:String(value),decimalPlaces:rawDecimalPlaces(value)})),componentEvidence,prices:[],priceDetails:[],total:null,totalIndex:-1,totalPrecision:MIN_PRICE_DECIMALS,evidence:"unresolved",needsReview:false,conflict:false,warnings:[],formulaStatus:"unknown",totalSource:"unresolved",rawPriceCount:rawPrices.length};}
 function parsePriceGroups(lines){const groups=[];let i=0;while(i<lines.length){if(normTime(lines[i])){i++;continue;}if(isIgnoreLabel(lines[i])){i++;while(i<lines.length&&!normTime(lines[i])&&!isPriceLabel(lines[i]))i++;continue;}if(isPriceLabel(lines[i])){const sameLineTokens=getPriceTokens(lines[i]);const collected=collectGroupNumbers(lines,i+1);const rawPriceTokens=[...sameLineTokens,...collected.tokens];const rawPrices=rawPriceTokens.map(token=>token.value);if(rawPrices.length){groups.push(createPriceGroup(lines[i],i,collected.endIndex,rawPrices,collectExplicitComponents(lines,collected.endIndex+1),rawPriceTokens));}else{let timeIndex=-1;for(let j=i+1;j<lines.length;j++){if(isPriceLabel(lines[j]))break;if(normTime(lines[j])){timeIndex=j;break;}}if(timeIndex!==-1){const afterTime=collectGroupNumbers(lines,timeIndex+1);if(afterTime.prices.length){groups.push(createPriceGroup(lines[i],timeIndex+1,afterTime.endIndex,afterTime.prices,collectExplicitComponents(lines,afterTime.endIndex+1),afterTime.tokens));i=Math.max(afterTime.endIndex+1,i+1);continue;}}}i=Math.max(collected.endIndex+1,i+1);continue;}if(getPositiveNumbers(lines[i]).length){const collected=collectGroupNumbers(lines,i);if(collected.prices.length)groups.push(createPriceGroup("未标注价格组",i,collected.endIndex,collected.prices,collectExplicitComponents(lines,collected.endIndex+1),collected.tokens));i=collected.endIndex+1;continue;}i++;}return groups;}
 function extractPriceGroups(lines){return parsePriceGroups(lines).map((group,index)=>({...group,id:`price-group-${index+1}`,normalizedLabel:normalizeLabel(group.label)}));}
 function dominantTotalIndex(groups,minVotes,minRatio){const votes=new Map();for(const group of groups){if(group.evidence!=="formula"||group.totalIndex<0)continue;votes.set(group.totalIndex,(votes.get(group.totalIndex)||0)+1);}const ranked=[...votes.entries()].sort((a,b)=>b[1]-a[1]);if(!ranked.length)return-1;const totalVotes=ranked.reduce((sum,item)=>sum+item[1],0);return ranked[0][1]>=minVotes&&ranked[0][1]/totalVotes>=minRatio?ranked[0][0]:-1;}
@@ -863,12 +910,12 @@ function groupDisplayPrecision(group){return Math.max(MIN_PRICE_DECIMALS,...(gro
 function resolvePriceGroupTotals(groups){
 for(const group of groups){
 group.rawPriceCount=group.rawPrices.length;group.formulaStatus="unknown";group.totalSource="unresolved";group.priceDetails=[];
-const electricity=group.componentEvidence.electricity;const service=group.componentEvidence.service;
+const electricity=group.componentEvidence.electricity;const service=group.componentEvidence.service;const adjustment=group.componentEvidence.adjustment||[];const hasAdjustment=adjustment.length>0;
 if(electricity.length&&service.length){
-const checkedCount=Math.min(group.rawPrices.length,electricity.length,service.length);const validatedIndexes=[];
-for(let index=0;index<checkedCount;index++){if(formulaNearlyEqual(electricity[index]+service[index],group.rawPrices[index]))validatedIndexes.push(index);}
-if(validatedIndexes.length){setGroupPriceDetails(group,validatedIndexes);group.total=group.prices.length===1?group.prices[0]:null;group.evidence="parallel-formula";group.totalSource="parallel-formula";group.formulaStatus=validatedIndexes.length<checkedCount?"partial":"passed";if(validatedIndexes.length<group.rawPrices.length){group.formulaStatus="partial";group.needsReview=true;group.conflict=true;group.warnings.push("部分显示总价与对应电费、服务费之和不一致。");}continue;}
-if(checkedCount===1){const componentSum=electricity[0]+service[0];group.total=group.rawPrices[0];group.totalIndex=0;setGroupPriceDetails(group,[0]);group.evidence="explicit-component-conflict";group.totalSource="explicit-component-conflict";group.formulaStatus="conflict";group.needsReview=true;group.conflict=true;group.warnings.push(`总价 ${formatPrice(group.total,group.totalPrecision)} 与电费、服务费之和 ${formatPrice(componentSum,groupDisplayPrecision(group))} 不一致。`);continue;}
+const checkedCount=Math.min(group.rawPrices.length,electricity.length,service.length,...(hasAdjustment?[adjustment.length]:[]));const validatedIndexes=[];
+for(let index=0;index<checkedCount;index++){const componentTotal=electricity[index]+service[index]-(hasAdjustment?adjustment[index]:0);if(formulaNearlyEqual(componentTotal,group.rawPrices[index]))validatedIndexes.push(index);}
+if(validatedIndexes.length){setGroupPriceDetails(group,validatedIndexes);group.total=group.prices.length===1?group.prices[0]:null;group.evidence="parallel-formula";group.totalSource="parallel-formula";group.formulaStatus=validatedIndexes.length<checkedCount?"partial":"passed";if(validatedIndexes.length<group.rawPrices.length){group.formulaStatus="partial";group.needsReview=true;group.conflict=true;group.warnings.push(hasAdjustment?"部分显示总价与电费、服务费及优惠调整后的结果不一致。":"部分显示总价与对应电费、服务费之和不一致。");}continue;}
+if(checkedCount===1){const componentSum=electricity[0]+service[0]-(hasAdjustment?adjustment[0]:0);group.total=group.rawPrices[0];group.totalIndex=0;setGroupPriceDetails(group,[0]);group.evidence="explicit-component-conflict";group.totalSource="explicit-component-conflict";group.formulaStatus="conflict";group.needsReview=true;group.conflict=true;group.warnings.push(hasAdjustment?`总价 ${formatPrice(group.total,group.totalPrecision)} 与电费、服务费及优惠调整后的结果 ${formatPrice(componentSum,groupDisplayPrecision(group))} 不一致。`:`总价 ${formatPrice(group.total,group.totalPrecision)} 与电费、服务费之和 ${formatPrice(componentSum,groupDisplayPrecision(group))} 不一致。`);continue;}
 }
 const formula=findFormulaResolution(group.rawPrices);if(!formula)continue;group.total=formula.total;group.totalIndex=formula.index;setGroupPriceDetails(group,[formula.index]);group.evidence="formula";group.totalSource="formula";group.formulaStatus="passed";
 }
