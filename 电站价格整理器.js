@@ -925,13 +925,66 @@ function findBestAssignmentPlan(candidates,groups,timeItems,documentProfile){con
 function assignGroupsToSections(timeItems,groups){const documentProfile=buildDocumentProfile(timeItems,groups);const candidates=buildAssignmentCandidates(groups,timeItems,documentProfile);const plan=findBestAssignmentPlan(candidates,groups,timeItems,documentProfile);plan.byTimeIndex.planScore=plan.planScore;plan.byTimeIndex.ambiguous=plan.ambiguous;plan.byTimeIndex.warnings=plan.warnings;plan.byTimeIndex.documentProfile=documentProfile;return plan.byTimeIndex;}
 function buildSectionReviewMeta(groups,documentProfile){const actualGroupCount=groups.length;const majorityGroupCount=documentProfile.majorityGroupCount||0;const warnings=[];const hasStrongStructure=documentProfile.structureStrength==="strong";if(hasStrongStructure&&majorityGroupCount&&actualGroupCount!==majorityGroupCount)warnings.push(`当前时段识别到 ${actualGroupCount} 个价格组，多数时段为 ${majorityGroupCount} 个。`);const actualLabels=new Set(groups.map(group=>group.normalizedLabel||normalizeLabel(group.label)));const expectedLabels=hasStrongStructure?(documentProfile.majorityLabelSequence||[]).filter(label=>label&&label!==UNLABELED_TEMPLATE&&!label.includes("未标注")):[];const missingLabels=[...new Set(expectedLabels.filter(label=>!actualLabels.has(label)))];if(hasStrongStructure&&missingLabels.length)warnings.push(`当前时段缺少多数结构中的 ${missingLabels.join("、")}。`);return{needsReview:warnings.length>0,warnings,actualGroupCount,majorityGroupCount,missingLabels,structureStrength:documentProfile.structureStrength};}
 function uniqueSorted(prices){const sorted=prices.map(Number).filter(Number.isFinite).sort((a,b)=>a-b);const unique=[];for(const price of sorted){if(!unique.length||!pricesEqual(unique[unique.length-1],price))unique.push(price);}return unique;}
-function parseSections(text){const lines=parseLines(text);const timeItems=extractTimeItems(lines);const groups=resolvePriceGroupTotals(enrichPriceGroupsWithTimeContext(extractPriceGroups(lines),timeItems));const documentProfile=buildDocumentProfile(timeItems,groups);const groupsByTime=assignGroupsToSections(timeItems,groups);const sections=timeItems.map((timeItem,pos)=>{const nextTimeIndex=pos<timeItems.length-1?timeItems[pos+1].index:lines.length;const sectionGroups=groupsByTime.get(timeItem.index)||[];const priceDetails=uniquePriceDetails(sectionGroups.flatMap(group=>group.priceDetails||[]));return{...timeItem,priceDetails,prices:priceDetails.map(detail=>detail.value),groups:sectionGroups,raw:lines.slice(timeItem.index,nextTimeIndex)};});const merged=new Map();for(const section of sections){const key=`${section.start}-${section.end}`;if(!merged.has(key))merged.set(key,{...section,duplicates:1});else{const current=merged.get(key);current.duplicates+=1;current.priceDetails=uniquePriceDetails([...current.priceDetails,...section.priceDetails]);current.prices=current.priceDetails.map(detail=>detail.value);current.groups.push(...section.groups);}}const result=[...merged.values()];for(const section of result)section.meta=buildSectionReviewMeta(section.groups,documentProfile);result.documentProfile=documentProfile;return result;}
+function sameResolvedGroups(leftGroups,rightGroups){if(leftGroups.length!==rightGroups.length)return false;for(let index=0;index<leftGroups.length;index++){const left=leftGroups[index];const right=rightGroups[index];if((left.normalizedLabel||normalizeLabel(left.label))!==(right.normalizedLabel||normalizeLabel(right.label)))return false;const leftPrices=left.priceDetails||[];const rightPrices=right.priceDetails||[];if(leftPrices.length!==rightPrices.length)return false;for(let priceIndex=0;priceIndex<leftPrices.length;priceIndex++)if(!pricesEqual(leftPrices[priceIndex].value,rightPrices[priceIndex].value))return false;}return true;}
+function sectionVariant(section){return{label:section.label,priceDetails:section.priceDetails,prices:section.prices,groups:section.groups};}
+function parseSections(text){
+const lines=parseLines(text);
+const timeItems=extractTimeItems(lines);
+const groups=resolvePriceGroupTotals(enrichPriceGroupsWithTimeContext(extractPriceGroups(lines),timeItems));
+const documentProfile=buildDocumentProfile(timeItems,groups);
+const groupsByTime=assignGroupsToSections(timeItems,groups);
+const sections=timeItems.map((timeItem,pos)=>{const nextTimeIndex=pos<timeItems.length-1?timeItems[pos+1].index:lines.length;const sectionGroups=groupsByTime.get(timeItem.index)||[];const priceDetails=uniquePriceDetails(sectionGroups.flatMap(group=>group.priceDetails||[]));return{...timeItem,priceDetails,prices:priceDetails.map(detail=>detail.value),groups:sectionGroups,raw:lines.slice(timeItem.index,nextTimeIndex)};});
+const merged=new Map();
+for(const section of sections){
+const key=`${section.start}-${section.end}`;
+if(!merged.has(key)){merged.set(key,{...section,duplicates:1,duplicateConflict:false,duplicateVariants:[sectionVariant(section)]});continue;}
+const current=merged.get(key);
+current.duplicates+=1;
+current.duplicateVariants.push(sectionVariant(section));
+if(!sameResolvedGroups(current.groups,section.groups))current.duplicateConflict=true;
+}
+const result=[...merged.values()];
+for(const section of result){
+const meta=buildSectionReviewMeta(section.groups,documentProfile);
+if(section.duplicateConflict){meta.needsReview=true;meta.warnings.push(`截图时段 ${section.label} 重复出现，且价格内容不一致，请对照原始文本确认。`);}
+section.meta=meta;
+}
+result.documentProfile=documentProfile;
+return result;
+}
 function priceLabelRole(label){const text=normalizeLabel(label);if(/非会员/.test(text))return{role:"nonMember",strength:"explicit"};if(/VIP|会员|黑钻|专享/.test(text))return{role:"member",strength:"explicit"};if(/挂牌价|原价|标准价/.test(text))return{role:"nonMember",strength:"experience"};return{role:"unknown",strength:"none"};}
 function findLabelPriceConflict(groups){const members=groups.filter(group=>group.total!==null&&priceLabelRole(group.label).role==="member");const nonMembers=groups.filter(group=>group.total!==null&&priceLabelRole(group.label).role==="nonMember");for(const memberGroup of members){for(const nonMemberGroup of nonMembers){if(memberGroup.total>nonMemberGroup.total&&!pricesEqual(memberGroup.total,nonMemberGroup.total))return`${memberGroup.label}高于${nonMemberGroup.label}，名称含义与会员价高低规则冲突。`;}}return"";}
 function sectionPricePair(section){const priceDetails=uniquePriceDetails(section.priceDetails?.length?section.priceDetails:section.prices.map(value=>({value,decimalPlaces:MIN_PRICE_DECIMALS})));if(!priceDetails.length)return null;const memberDetail=priceDetails[0];const nonMemberDetail=priceDetails.length===1?memberDetail:priceDetails[1];return{section,priceDetails,prices:priceDetails.map(detail=>detail.value),member:memberDetail.value,nonMember:nonMemberDetail.value,memberPrecision:memberDetail.decimalPlaces,nonMemberPrecision:nonMemberDetail.decimalPlaces};}
 function joinReviewNotes(notes){const unique=[...new Set(notes.map(note=>String(note||"").trim()).filter(Boolean))];if(!unique.length)return"";return`${unique.map(note=>note.replace(/[。；]+$/g,"")).join("；")}。`;}
 function appendSectionReviewNotes(section,notes){let needsReview=false;const groups=section.groups||[];const unresolvedGroups=groups.filter(group=>group.rawPrices?.length&&!group.prices?.length);const reviewGroups=groups.filter(group=>group.needsReview||group.conflict);for(const group of reviewGroups){needsReview=true;for(const warning of group.warnings)notes.push(`${group.label}：${warning}`);}if(unresolvedGroups.length){needsReview=true;notes.push(`${unresolvedGroups.map(group=>group.label).join("、")}：OCR 缺少关键数字，无法确认唯一总价。`);}if(section.meta?.needsReview){needsReview=true;notes.push(...section.meta.warnings);}const labelConflict=findLabelPriceConflict(groups);if(labelConflict){needsReview=true;notes.push(labelConflict);}return needsReview;}
-function chooseForTarget(sections,target){const start=toMin(target.start);const end=toMin(target.end);const matched=sections.filter(section=>section.end>start&&section.start<end);const available=matched.map(sectionPricePair).filter(Boolean);if(!available.length)return{member:"",nonMember:"",memberPrecision:MIN_PRICE_DECIMALS,nonMemberPrecision:MIN_PRICE_DECIMALS,matched,available,status:"missing",note:"未识别到可信总价，电费和服务费不会作为总价兜底"};const ranked=[...available].sort((a,b)=>a.member-b.member||a.nonMember-b.nonMember);const best=ranked[0];const member=best.member;const nonMember=best.nonMember;const notes=[];let needsReview=false;for(const item of available)if(appendSectionReviewNotes(item.section,notes))needsReview=true;if(best.prices.length===1){needsReview=true;notes.push("只有一个可信总价，会员价和非会员价暂按同价处理。");}if(matched.length>1){needsReview=true;const reference=available[0];const hasDifferentPairs=available.some(item=>!pricesEqual(item.member,reference.member)||!pricesEqual(item.nonMember,reference.nonMember));if(hasDifferentPairs)notes.push("一个系统时段匹配多个截图时段，且价格不一致，请人工确认。");else notes.push("一个系统时段匹配多个截图时段，价格一致，请核对。");notes.push(`已采用 ${best.section.label} 的最低会员价及对应非会员价。`);}if(!needsReview)notes.push("总价公式成立，结构与归属正常，已按价格从低到高确定会员价和非会员价。");return{member,nonMember,memberPrecision:best.memberPrecision,nonMemberPrecision:best.nonMemberPrecision,matched,available,best,status:needsReview?"review":"ok",note:joinReviewNotes(notes)};}
+function formatSectionPair(item){return`${item.section.label} 为 ${formatPrice(item.member,item.memberPrecision)}/${formatPrice(item.nonMember,item.nonMemberPrecision)}`;}
+function chooseForTarget(sections,target){
+const start=toMin(target.start);const end=toMin(target.end);
+const matched=sections.filter(section=>section.end>start&&section.start<end);
+const duplicateConflicts=matched.filter(section=>section.duplicateConflict);
+if(duplicateConflicts.length){const notes=[];for(const section of duplicateConflicts)notes.push(...(section.meta?.warnings||[]));return{member:"",nonMember:"",memberPrecision:MIN_PRICE_DECIMALS,nonMemberPrecision:MIN_PRICE_DECIMALS,matched,available:[],best:null,status:"review",note:joinReviewNotes(notes)};}
+const available=matched.map(sectionPricePair).filter(Boolean);
+if(!available.length)return{member:"",nonMember:"",memberPrecision:MIN_PRICE_DECIMALS,nonMemberPrecision:MIN_PRICE_DECIMALS,matched,available,status:"missing",note:"未识别到可信总价，电费和服务费不会作为总价兜底"};
+const ranked=[...available].sort((a,b)=>a.member-b.member||a.nonMember-b.nonMember);
+const best=ranked[0];
+const notes=[];let needsReview=false;
+for(const item of available)if(appendSectionReviewNotes(item.section,notes))needsReview=true;
+if(best.prices.length===1){needsReview=true;notes.push("只有一个可信总价，会员价和非会员价暂按同价处理。");}
+if(matched.length>1){
+needsReview=true;
+const reference=available[0];
+const hasMissingPair=available.length!==matched.length;
+const hasDifferentPairs=available.some(item=>!pricesEqual(item.member,reference.member)||!pricesEqual(item.nonMember,reference.nonMember));
+if(hasMissingPair||hasDifferentPairs){
+const details=matched.map(section=>{const item=available.find(candidate=>candidate.section===section);return item?formatSectionPair(item):`${section.label} 未识别到完整价格`;});
+notes.push(`一个系统时段匹配多个截图时段，且价格不一致：${details.join("；")}，请人工确认。`);
+return{member:"",nonMember:"",memberPrecision:MIN_PRICE_DECIMALS,nonMemberPrecision:MIN_PRICE_DECIMALS,matched,available,best:null,status:"review",note:joinReviewNotes(notes)};
+}
+notes.push("一个系统时段匹配多个截图时段，已合并相同价格，请核对。");
+}
+if(!needsReview)notes.push("总价公式成立，结构与归属正常，已按价格从低到高确定会员价和非会员价。");
+return{member:best.member,nonMember:best.nonMember,memberPrecision:best.memberPrecision,nonMemberPrecision:best.nonMemberPrecision,matched,available,best,status:needsReview?"review":"ok",note:joinReviewNotes(notes)};
+}
 function regressionPeriodId(period) {
   return `${period.start}-${period.end}`;
 }
@@ -1026,8 +1079,9 @@ const match = String(value || "").match(/^(\d{4})-(\d{2})$/);
 return match ? `${match[1]}年${match[2]}月` : "未设置";
 }
 function rowDisplayStatus(row) {
+if (row.edited && row.member !== "" && row.nonMember !== "") return "ok";
+if (row.status === "review") return "review";
 if (row.member === "" || row.nonMember === "") return "missing";
-if (row.edited) return "ok";
 return row.status;
 }
 function rowPricePrecision(row, kind) {
