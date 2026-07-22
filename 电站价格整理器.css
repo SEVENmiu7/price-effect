@@ -2697,6 +2697,22 @@ body.v4.layer-active .app-shell {
   width: 100%;
 }
 
+.v4 .sample-menu-section .pretty-select {
+  min-width: 0;
+}
+
+.v4 .sample-menu-section .pretty-select-trigger {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.v4 .sample-menu-section .pretty-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .v4 .sample-menu-section #loadSampleBtn {
   width: auto;
   min-height: 42px;
