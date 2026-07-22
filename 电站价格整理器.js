@@ -456,6 +456,159 @@ const REGRESSION_SAMPLES = {
       missingRegressionRow("14:00-16:00"),
       missingRegressionRow("16:00-24:00")
     ]
+  },
+  "general-cross-period-conflict": {
+    id: "general-cross-period-conflict",
+    name: "通用规则：跨截图时段价格冲突",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: `16:00-18:00
+非会员价
+1.2900
+1.0000
+0.2900
+会员价
+1.2500
+1.0000
+0.2500
+18:00-22:00
+非会员价
+1.2500
+1.0000
+0.2500
+会员价
+1.2000
+1.0000
+0.2000
+22:00-24:00
+非会员价
+1.1500
+1.0000
+0.1500
+会员价
+1.1000
+1.0000
+0.1000`,
+    expectedRows: [
+      missingRegressionRow("00:00-06:00"),
+      missingRegressionRow("06:00-12:00"),
+      missingRegressionRow("12:00-14:00"),
+      missingRegressionRow("14:00-16:00"),
+      regressionRow("16:00-24:00", "", "", "review")
+    ]
+  },
+  "general-low-service-fee": {
+    id: "general-low-service-fee",
+    name: "通用规则：低于 0.1 的服务费",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: `00:00-06:00
+会员价
+0.7000
+0.6500
+0.0500
+非会员价
+0.8000
+0.7500
+0.0500`,
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.7000", "0.8000", "ok"),
+      missingRegressionRow("06:00-12:00"),
+      missingRegressionRow("12:00-14:00"),
+      missingRegressionRow("14:00-16:00"),
+      missingRegressionRow("16:00-24:00")
+    ]
+  },
+  "general-adjusted-formula-order": {
+    id: "general-adjusted-formula-order",
+    name: "通用规则：四数字调整公式换序",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: `00:00-06:00
+会员价
+0.5000
+0.7000
+0.3000
+0.1000
+非会员价
+0.6000
+0.8000
+0.3000
+0.1000`,
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.7000", "0.8000", "ok"),
+      missingRegressionRow("06:00-12:00"),
+      missingRegressionRow("12:00-14:00"),
+      missingRegressionRow("14:00-16:00"),
+      missingRegressionRow("16:00-24:00")
+    ]
+  },
+  "general-duplicate-identical": {
+    id: "general-duplicate-identical",
+    name: "通用规则：重复时段内容一致",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: `00:00-06:00
+会员价
+0.7000
+0.5000
+0.2000
+非会员价
+0.8000
+0.5000
+0.3000
+00:00-06:00
+会员价
+0.7000
+0.5000
+0.2000
+非会员价
+0.8000
+0.5000
+0.3000`,
+    expectedRows: [
+      regressionRow("00:00-06:00", "0.7000", "0.8000", "ok"),
+      missingRegressionRow("06:00-12:00"),
+      missingRegressionRow("12:00-14:00"),
+      missingRegressionRow("14:00-16:00"),
+      missingRegressionRow("16:00-24:00")
+    ]
+  },
+  "general-duplicate-conflict": {
+    id: "general-duplicate-conflict",
+    name: "通用规则：重复时段价格冲突",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: `00:00-06:00
+会员价
+0.7000
+0.5000
+0.2000
+非会员价
+0.8000
+0.5000
+0.3000
+00:00-06:00
+会员价
+0.7500
+0.5000
+0.2500
+非会员价
+0.8500
+0.5000
+0.3500`,
+    expectedRows: [
+      regressionRow("00:00-06:00", "", "", "review"),
+      missingRegressionRow("06:00-12:00"),
+      missingRegressionRow("12:00-14:00"),
+      missingRegressionRow("14:00-16:00"),
+      missingRegressionRow("16:00-24:00")
+    ]
   }
 };
 for (const sample of Object.values(REGRESSION_SAMPLES)) SAMPLES[sample.id] = sample.input;
