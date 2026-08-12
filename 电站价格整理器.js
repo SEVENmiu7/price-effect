@@ -495,6 +495,38 @@ const REGRESSION_SAMPLES = {
       missingRegressionRow("06:00-12:00"),
       missingRegressionRow("12:00-14:00"),
       missingRegressionRow("14:00-16:00"),
+      regressionRow("16:00-24:00", "1.1000", "1.1500", "review")
+    ]
+  },
+  "general-cross-period-crossed-pairs": {
+    id: "general-cross-period-crossed-pairs",
+    name: "通用规则：跨截图时段价格组交叉",
+    mode: "general",
+    region: "changsha",
+    month: "2026-06",
+    input: `16:00-20:00
+会员价
+1.1000
+0.8000
+0.3000
+非会员价
+1.3000
+1.0000
+0.3000
+20:00-24:00
+会员价
+1.2000
+0.9000
+0.3000
+非会员价
+1.2500
+1.0000
+0.2500`,
+    expectedRows: [
+      missingRegressionRow("00:00-06:00"),
+      missingRegressionRow("06:00-12:00"),
+      missingRegressionRow("12:00-14:00"),
+      missingRegressionRow("14:00-16:00"),
       regressionRow("16:00-24:00", "", "", "review")
     ]
   },
@@ -1242,10 +1274,12 @@ return result;
 }
 function priceLabelRole(label){const text=normalizeLabel(label);if(/非会员/.test(text))return{role:"nonMember",strength:"explicit"};if(/VIP|会员|黑钻|专享/.test(text))return{role:"member",strength:"explicit"};if(/挂牌价|原价|标准价/.test(text))return{role:"nonMember",strength:"experience"};return{role:"unknown",strength:"none"};}
 function findLabelPriceConflict(groups){const members=groups.filter(group=>group.total!==null&&priceLabelRole(group.label).role==="member");const nonMembers=groups.filter(group=>group.total!==null&&priceLabelRole(group.label).role==="nonMember");for(const memberGroup of members){for(const nonMemberGroup of nonMembers){if(memberGroup.total>nonMemberGroup.total&&!pricesEqual(memberGroup.total,nonMemberGroup.total))return`${memberGroup.label}高于${nonMemberGroup.label}，名称含义与会员价高低规则冲突。`;}}return"";}
-function sectionPricePair(section){const priceDetails=uniquePriceDetails(section.priceDetails?.length?section.priceDetails:section.prices.map(value=>({value,decimalPlaces:MIN_PRICE_DECIMALS})));if(!priceDetails.length)return null;const memberDetail=priceDetails[0];const nonMemberDetail=priceDetails.length===1?memberDetail:priceDetails[1];return{section,priceDetails,prices:priceDetails.map(detail=>detail.value),member:memberDetail.value,nonMember:nonMemberDetail.value,memberPrecision:memberDetail.decimalPlaces,nonMemberPrecision:nonMemberDetail.decimalPlaces};}
+function sectionPricePair(section){const priceDetails=uniquePriceDetails(section.priceDetails?.length?section.priceDetails:section.prices.map(value=>({value,decimalPlaces:MIN_PRICE_DECIMALS})));if(!priceDetails.length)return null;const memberDetail=priceDetails[0];const nonMemberDetail=priceDetails.length===1?memberDetail:priceDetails[1];const assignmentAmbiguous=(section.groups||[]).some(group=>group.assignmentAmbiguous);return{section,priceDetails,prices:priceDetails.map(detail=>detail.value),member:memberDetail.value,nonMember:nonMemberDetail.value,memberPrecision:memberDetail.decimalPlaces,nonMemberPrecision:nonMemberDetail.decimalPlaces,complete:priceDetails.length>=2,strict:!assignmentAmbiguous};}
 function joinReviewNotes(notes){const unique=[...new Set(notes.map(note=>String(note||"").trim()).filter(Boolean))];if(!unique.length)return"";return`${unique.map(note=>note.replace(/[。；]+$/g,"")).join("；")}。`;}
 function appendSectionReviewNotes(section,notes){let needsReview=false;const groups=section.groups||[];const unresolvedGroups=groups.filter(group=>group.rawPrices?.length&&!group.prices?.length);const reviewGroups=groups.filter(group=>group.needsReview||group.conflict);for(const group of reviewGroups){needsReview=true;for(const warning of group.warnings)notes.push(`${group.label}：${warning}`);}if(unresolvedGroups.length){needsReview=true;notes.push(`${unresolvedGroups.map(group=>group.label).join("、")}：OCR 缺少关键数字，无法确认唯一总价。`);}if(section.meta?.needsReview){needsReview=true;notes.push(...section.meta.warnings);}const labelConflict=findLabelPriceConflict(groups);if(labelConflict){needsReview=true;notes.push(labelConflict);}return needsReview;}
 function formatSectionPair(item){return`${item.section.label} 为 ${formatPrice(item.member,item.memberPrecision)}/${formatPrice(item.nonMember,item.nonMemberPrecision)}`;}
+function pairNoHigher(left,right){return(left.member<right.member||pricesEqual(left.member,right.member))&&(left.nonMember<right.nonMember||pricesEqual(left.nonMember,right.nonMember));}
+function findLowestCompletePair(pairs){const lowest=pairs.filter(candidate=>pairs.every(other=>candidate===other||pairNoHigher(candidate,other)));return lowest.length===1?lowest[0]:null;}
 function chooseForTarget(sections,target){
 const start=toMin(target.start);const end=toMin(target.end);
 const matched=sections.filter(section=>section.end>start&&section.start<end);
@@ -1254,7 +1288,7 @@ if(duplicateConflicts.length){const notes=[];for(const section of duplicateConfl
 const available=matched.map(sectionPricePair).filter(Boolean);
 if(!available.length)return{member:"",nonMember:"",memberPrecision:MIN_PRICE_DECIMALS,nonMemberPrecision:MIN_PRICE_DECIMALS,matched,available,status:"missing",note:"未识别到可信总价，电费和服务费不会作为总价兜底"};
 const ranked=[...available].sort((a,b)=>a.member-b.member||a.nonMember-b.nonMember);
-const best=ranked[0];
+let best=ranked[0];
 const notes=[];let needsReview=false;
 for(const item of available)if(appendSectionReviewNotes(item.section,notes))needsReview=true;
 if(best.prices.length===1){needsReview=true;notes.push("只有一个可信总价，会员价和非会员价暂按同价处理。");}
@@ -1265,8 +1299,12 @@ const hasMissingPair=available.length!==matched.length;
 const hasDifferentPairs=available.some(item=>!pricesEqual(item.member,reference.member)||!pricesEqual(item.nonMember,reference.nonMember));
 if(hasMissingPair||hasDifferentPairs){
 const details=matched.map(section=>{const item=available.find(candidate=>candidate.section===section);return item?formatSectionPair(item):`${section.label} 未识别到完整价格`;});
-notes.push(`一个系统时段匹配多个截图时段，且价格不一致：${details.join("；")}，请人工确认。`);
-return{member:"",nonMember:"",memberPrecision:MIN_PRICE_DECIMALS,nonMemberPrecision:MIN_PRICE_DECIMALS,matched,available,best:null,status:"review",note:joinReviewNotes(notes)};
+const comparable=available.filter(item=>item.complete&&item.strict);
+if(comparable.length!==matched.length){notes.push(`一个系统时段匹配多个截图时段，但存在价格组不完整或时段归属不明确：${details.join("；")}，请人工确认。`);return{member:"",nonMember:"",memberPrecision:MIN_PRICE_DECIMALS,nonMemberPrecision:MIN_PRICE_DECIMALS,matched,available,best:null,status:"review",note:joinReviewNotes(notes)};}
+best=findLowestCompletePair(comparable);
+if(!best){notes.push(`一个系统时段匹配多个截图时段，但完整价格组交叉，无法确定唯一最低组：${details.join("；")}，请人工确认。`);return{member:"",nonMember:"",memberPrecision:MIN_PRICE_DECIMALS,nonMemberPrecision:MIN_PRICE_DECIMALS,matched,available,best:null,status:"review",note:joinReviewNotes(notes)};}
+notes.push(`一个系统时段匹配多个截图时段，已采用最低完整价格组：${formatSectionPair(best)}；其他候选为 ${details.filter(detail=>detail!==formatSectionPair(best)).join("；")||"无"}。`);
+return{member:best.member,nonMember:best.nonMember,memberPrecision:best.memberPrecision,nonMemberPrecision:best.nonMemberPrecision,matched,available,best,status:"review",note:joinReviewNotes(notes)};
 }
 notes.push("一个系统时段匹配多个截图时段，已合并相同价格，请核对。");
 }
